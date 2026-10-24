@@ -1,0 +1,17 @@
+services:
+  yanicloud:
+    build: .
+    container_name: yanicloud
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - HOST=0.0.0.0
+      - DATA_DIR=/data
+      - DEFAULT_QUOTA_BYTES=75161927680
+      - TRASH_RETENTION_DAYS=30
+    volumes:
+      - ./data:/data
+      - /mnt:/mnt
+      - /media:/media

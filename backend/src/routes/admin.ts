@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
-import { db, getSetting, setSetting, getFilesDir, getDefaultQuota } from '../db.js'
+import { db, getSetting, setSetting, getFilesDir, getDefaultQuota, reservedQuotaBytes } from '../db.js'
 import { config, filesDir } from '../config.js'
 import { requireAdmin, fail, userIdOf } from '../auth.js'
 import { hashPassword } from '../password.js'
@@ -207,6 +207,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       trashRetentionDays: config.trashRetentionDays,
       diskTotal: disk.total,
       diskFree: disk.free,
+      reservedBytes: reservedQuotaBytes(),
       userCount: (db.prepare('SELECT COUNT(*) AS c FROM users').get() as any).c,
     }
   })
@@ -258,6 +259,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       trashRetentionDays: config.trashRetentionDays,
       diskTotal: disk.total,
       diskFree: disk.free,
+      reservedBytes: reservedQuotaBytes(),
       userCount: (db.prepare('SELECT COUNT(*) AS c FROM users').get() as any).c,
     }
   })

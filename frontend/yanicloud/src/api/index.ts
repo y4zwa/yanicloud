@@ -21,6 +21,7 @@ export interface AdminSettings {
   trashRetentionDays: number
   diskTotal: number
   diskFree: number
+  reservedBytes: number
   userCount: number
 }
 

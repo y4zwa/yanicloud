@@ -72,7 +72,10 @@
           <span class="text-title-medium text-on-surface">{{ formatBytes(settings.diskTotal - settings.diskFree) }} из {{ formatBytes(settings.diskTotal) }}</span>
         </div>
         <v-progress-linear :model-value="diskPercent" color="primary" height="8" rounded></v-progress-linear>
-        <div class="text-body-2 text-on-surface-variant mt-2">Свободно {{ formatBytes(settings.diskFree) }}</div>
+        <div class="text-body-2 text-on-surface-variant mt-2">
+          Свободно {{ formatBytes(availableBytes) }}
+          <span v-if="settings.reservedBytes > 0"> · зарезервировано квотами {{ formatBytes(settings.reservedBytes) }}</span>
+        </div>
       </div>
 
       <div class="d-flex align-center gap-6 mb-6">
@@ -278,7 +281,7 @@ async function removeBanner(): Promise<void> {
 
 const users = ref<AdminUser[]>([])
 const loadingUsers = ref(false)
-const settings = ref<AdminSettings>({ defaultQuota: 0, storageDir: '', trashRetentionDays: 30, diskTotal: 0, diskFree: 0, userCount: 0 })
+const settings = ref<AdminSettings>({ defaultQuota: 0, storageDir: '', trashRetentionDays: 30, diskTotal: 0, diskFree: 0, reservedBytes: 0, userCount: 0 })
 const ownStorage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, diskTotal: 0, diskFree: 0 })
 const disks = ref<AdminDisk[]>([])
 const loadingDisks = ref(false)
@@ -314,6 +317,8 @@ const diskPercent = computed(() => {
   if (!settings.value.diskTotal) return 0
   return Math.min(100, Math.round(((settings.value.diskTotal - settings.value.diskFree) / settings.value.diskTotal) * 100))
 })
+
+const availableBytes = computed(() => Math.max(0, settings.value.diskFree - settings.value.reservedBytes))
 
 function notify(text: string, color = 'primary'): void {
   snackText.value = text

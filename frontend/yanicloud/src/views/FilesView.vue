@@ -443,7 +443,7 @@ const storagePercentLabel = computed(() => {
 
 const storageLabel = computed(() => {
   if (storage.value.quota > 0) return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.quota)}`
-  return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.availableTotal)} (диск)`
+  return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.availableTotal)}`
 })
 
 function notify(text: string, color = 'primary'): void {

@@ -282,7 +282,7 @@ async function removeBanner(): Promise<void> {
 const users = ref<AdminUser[]>([])
 const loadingUsers = ref(false)
 const settings = ref<AdminSettings>({ defaultQuota: 0, storageDir: '', trashRetentionDays: 30, diskTotal: 0, diskFree: 0, reservedBytes: 0, userCount: 0 })
-const ownStorage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, diskTotal: 0, diskFree: 0 })
+const ownStorage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
 const disks = ref<AdminDisk[]>([])
 const loadingDisks = ref(false)
 const usingDisk = ref('')

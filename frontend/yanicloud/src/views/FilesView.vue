@@ -399,7 +399,7 @@ const stack = ref<{ id: string | null; name: string }[]>([{ id: null, name: 'Г�
 const items = ref<NodeItem[]>([])
 const recent = ref<NodeItem[]>([])
 const favoritesCount = ref(0)
-const storage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, diskTotal: 0, diskFree: 0 })
+const storage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
 const bannerUrl = ref<string | null>(null)
 const loading = ref(true)
 const error = ref('')
@@ -431,7 +431,7 @@ const files = computed(() => items.value.filter((n) => n.type === 'file'))
 
 const storagePercent = computed(() => {
   if (storage.value.quota > 0) return Math.min(100, (storage.value.used / storage.value.quota) * 100)
-  if (storage.value.diskTotal > 0) return Math.min(100, (storage.value.used / storage.value.diskTotal) * 100)
+  if (storage.value.availableTotal > 0) return Math.min(100, (storage.value.used / storage.value.availableTotal) * 100)
   return 0
 })
 
@@ -443,7 +443,7 @@ const storagePercentLabel = computed(() => {
 
 const storageLabel = computed(() => {
   if (storage.value.quota > 0) return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.quota)}`
-  return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.diskTotal)} (диск)`
+  return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.availableTotal)} (диск)`
 })
 
 function notify(text: string, color = 'primary'): void {

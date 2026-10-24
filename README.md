@@ -28,6 +28,16 @@ docker compose up -d --build
 - Мультиюзер, квота на пользователя, админ-панель (управление пользователями, хранилищем и дисками)
 - Акцентный цвет и баннер на главной
 
+## Скриншоты
+
+<p align="center">
+  <img src="screenshots/screenshot-1.png" alt="Главная" width="800">
+</p>
+
+| Настройки — профиль и оформление | Настройки — хранилище и пользователи |
+| --- | --- |
+| <img src="screenshots/screenshot-2.png" width="420"> | <img src="screenshots/screenshot-3.png" width="420"> |
+
 ## Настройка
 
 Переменные окружения (задаются в `compose.yaml`):

@@ -113,6 +113,13 @@ export function getDefaultQuota(): number {
   return config.defaultQuota
 }
 
+export function reservedQuotaBytes(excludeUserId?: number): number {
+  const row = excludeUserId
+    ? db.prepare('SELECT COALESCE(SUM(quota_bytes), 0) AS s FROM users WHERE quota_bytes > 0 AND id != ?').get(excludeUserId)
+    : db.prepare('SELECT COALESCE(SUM(quota_bytes), 0) AS s FROM users WHERE quota_bytes > 0').get()
+  return (row as any)?.s ?? 0
+}
+
 export function rowToNode(row: any): any {
   if (!row) return null
   return {

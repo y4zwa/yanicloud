@@ -52,6 +52,8 @@ export interface StorageInfo {
   percent: number
   diskTotal: number
   diskFree: number
+  reservedByOthers: number
+  availableTotal: number
 }
 
 const TOKEN_KEY = 'yanicloud_token'

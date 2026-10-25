@@ -165,7 +165,6 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
-    // map device -> name
     for (const m of mounts) {
       try {
         const dev = fs.statSync(m.mount).dev
@@ -223,20 +222,23 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (body.storageDir !== undefined && body.storageDir !== null && String(body.storageDir).trim() !== '') {
       const newDir = path.resolve(String(body.storageDir).trim())
       const oldDir = path.resolve(getFilesDir())
+      
+      // Асинхронное перемещение директории
       if (newDir !== oldDir) {
         try {
-          fs.mkdirSync(newDir, { recursive: true })
+          await fs.promises.mkdir(newDir, { recursive: true })
           if (fs.existsSync(oldDir)) {
-            for (const f of fs.readdirSync(oldDir)) {
+            const files = await fs.promises.readdir(oldDir)
+            for (const f of files) {
               const from = path.join(oldDir, f)
               const to = path.join(newDir, f)
               if (fs.existsSync(to)) continue
               try {
-                fs.renameSync(from, to)
+                await fs.promises.rename(from, to)
               } catch (e: any) {
                 if (e?.code === 'EXDEV') {
-                  fs.copyFileSync(from, to)
-                  fs.rmSync(from, { force: true })
+                  await fs.promises.copyFile(from, to)
+                  await fs.promises.unlink(from)
                 } else {
                   throw e
                 }

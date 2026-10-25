@@ -191,25 +191,33 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
         const storageKey = randomUUID()
         const fullPath = path.join(getFilesDir(), storageKey)
         let size = 0
+        let quotaExceeded = false
+        
+        const used = usedBytes(userId)
+        const quota = getQuota(userId)
+
         const counter = new Transform({
           transform(chunk: Buffer, _enc, cb) {
             size += chunk.length
+            if (quota > 0 && used + size > quota) {
+              quotaExceeded = true
+              return cb(new Error('QUOTA_EXCEEDED'))
+            }
             cb(null, chunk)
           },
         })
+
         try {
           await pipeline(part.file, counter, fs.createWriteStream(fullPath))
-        } catch (err) {
+        } catch (err: any) {
           fs.rmSync(fullPath, { force: true })
+          if (err.message === 'QUOTA_EXCEEDED' || quotaExceeded) {
+            quotaErr = 'Недостаточно места в хранилище'
+            break 
+          }
           throw err
         }
-        const used = usedBytes(userId)
-        const quota = getQuota(userId)
-        if (quota > 0 && used + size > quota) {
-          fs.rmSync(fullPath, { force: true })
-          quotaErr = 'Недостаточно места в хранилище'
-          break
-        }
+        
         const node = createFile(userId, parentId, name, size, part.mimetype || null, storageKey)
         created.push(toPublic(node))
       }

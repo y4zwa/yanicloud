@@ -37,9 +37,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       .prepare('INSERT INTO users (username, password_hash, quota_bytes, created_at) VALUES (?, ?, ?, ?)')
       .run(username, hash, getDefaultQuota(), now)
 
-    // First ever user becomes admin with unlimited quota
-    const adminCount = db.prepare('SELECT COUNT(*) AS c FROM users WHERE is_admin = 1').get() as any
-    if (!adminCount?.c) {
+    // Привязываем к общему числу пользователей, а не только админов
+    const userCount = db.prepare('SELECT COUNT(*) AS c FROM users').get() as any
+    if (userCount?.c === 1) {
       db.prepare('UPDATE users SET is_admin = 1, quota_bytes = 0 WHERE id = ?').run(info.lastInsertRowid)
     }
 

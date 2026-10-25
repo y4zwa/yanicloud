@@ -112,15 +112,21 @@ export function permanentDelete(userId: number, id: string): void {
 
   const ids: string[] = []
   const dir = getFilesDir()
+  
   for (const r of rows) {
     ids.push(r.id)
     if (r.type === 'file' && r.storage_key) {
       fs.rmSync(path.join(dir, r.storage_key), { force: true })
     }
   }
+  
   if (ids.length) {
-    const placeholders = ids.map(() => '?').join(',')
-    db.prepare(`DELETE FROM nodes WHERE id IN (${placeholders})`).run(...ids)
+    // Используем транзакцию вместо передачи тысяч аргументов в .run()
+    const deleteStmt = db.prepare('DELETE FROM nodes WHERE id = ?')
+    const deleteTx = db.transaction((items: string[]) => {
+      for (const itemId of items) deleteStmt.run(itemId)
+    })
+    deleteTx(ids)
   }
 }
 

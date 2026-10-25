@@ -11,6 +11,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Pro
 
 export function userIdOf(req: FastifyRequest): number {
   const sub = (req as any).user?.sub
+  if (!sub) return 0
   return Number(sub)
 }
 

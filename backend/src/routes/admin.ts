@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { getUserFilesDir } from '../db.js'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import { db, getSetting, setSetting, getFilesDir, getDefaultQuota } from '../db.js'
@@ -64,7 +65,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const id = Number((req.params as any).id)
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
     if (!row) return fail(reply, 404, 'Пользователь не найден')
-
+    const oldDir = getUserFilesDir(id)
     const body = req.body as any
     const updates: string[] = []
     const params: any[] = []
@@ -74,6 +75,10 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       if (Number.isNaN(q) || q < 0) return fail(reply, 400, 'Некорректная квота')
       updates.push('quota_bytes = ?')
       params.push(q)
+    }
+    if (updates.length) {
+      params.push(id)
+      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     }
     if (body.isAdmin !== undefined) {
       updates.push('is_admin = ?')
@@ -95,8 +100,18 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       params.push(id)
       db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     }
+    const newDir = getUserFilesDir(id)
+
+    if (oldDir !== newDir && fs.existsSync(oldDir)) {
+      try {
+        fs.cpSync(oldDir, newDir, { recursive: true })
+        fs.rmSync(oldDir, { recursive: true, force: true })
+      } catch (err) {
+        console.error(`Ошибка при переносе файлов юзера ${id}:`, err)
+      }
+    }
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
-    return { user: { id: updated.id, username: updated.username, isAdmin: updated.is_admin === 1, quotaBytes: updated.quota_bytes, storagePath: updated.storage_path} }
+    return { user: { id: updated.id, username: updated.username, isAdmin: updated.is_admin === 1, quotaBytes: updated.quota_bytes, storagePath: updated.storage_path } }
   })
 
   app.delete('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {

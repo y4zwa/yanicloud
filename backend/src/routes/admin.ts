@@ -15,7 +15,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/admin/users', { preHandler: requireAdmin }, async () => {
     const rows = db
       .prepare(
-        `SELECT u.id, u.username, u.is_admin, u.quota_bytes, u.created_at,
+        `SELECT u.id, u.username, u.storage_path, u.is_admin, u.quota_bytes, u.created_at,
           (SELECT COALESCE(SUM(size), 0) FROM nodes n WHERE n.user_id = u.id AND n.type = 'file' AND n.deleted_at IS NULL) AS used
          FROM users u ORDER BY u.id ASC`
       )

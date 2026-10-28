@@ -71,6 +71,9 @@ const userCols = db.prepare('PRAGMA table_info(users)').all() as any[]
 if (!userCols.some((c) => c.name === 'is_admin')) {
   db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0')
 }
+if (!userCols.some((c) => c.name === 'storage_path')) {
+  db.exec('ALTER TABLE users ADD COLUMN storage_path TEXT')
+}
 if (!userCols.some((c) => c.name === 'banner')) {
   db.exec('ALTER TABLE users ADD COLUMN banner INTEGER NOT NULL DEFAULT 0')
 }
@@ -138,6 +141,15 @@ export function rowToNode(row: any): any {
     updatedAt: row.updated_at,
     items: row.items,
   }
+}
+
+export function getUserFilesDir(userId: number): string {
+  const row = db.prepare('SELECT storage_path FROM users WHERE id = ?').get(userId) as any
+  if (row && row.storage_path && row.storage_path.trim() !== '') {
+    fs.mkdirSync(row.storage_path, { recursive: true })
+    return row.storage_path
+  }
+  return getFilesDir() // Фоллбэк на дефолтную общую папку
 }
 
 export function toPublic(node: any): any {

@@ -50,12 +50,13 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       if (Number.isNaN(quota) || quota < 0) return fail(reply, 400, 'Некорректная квота')
     }
     const isAdmin = body?.isAdmin === true || body?.isAdmin === 1 ? 1 : 0
+    const storagePath = body?.storagePath && String(body.storagePath).trim() !== '' ? String(body.storagePath).trim() : null
     const now = Date.now()
     const info = db
-      .prepare('INSERT INTO users (username, password_hash, quota_bytes, is_admin, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(username, hashPassword(password), quota, isAdmin, now)
+      .prepare('INSERT INTO users (username, password_hash, quota_bytes, is_admin, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(username, hashPassword(password), quota, isAdmin, storagePath, now)
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid) as any
-    return { user: { id: row.id, username: row.username, isAdmin: row.is_admin === 1, quotaBytes: row.quota_bytes } }
+    return { user: { id: row.id, username: row.username, isAdmin: row.is_admin === 1, quotaBytes: row.quota_bytes, storagePath: row.storage_path } }
   })
 
   app.patch('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
@@ -77,6 +78,11 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       updates.push('is_admin = ?')
       params.push(body.isAdmin ? 1 : 0)
     }
+    if (body.storagePath !== undefined) {
+      const sp = body.storagePath === null ? null : String(body.storagePath).trim()
+      updates.push('storage_path = ?')
+      params.push(sp === '' ? null : sp)
+    }
     if (body.password !== undefined && body.password !== null && body.password !== '') {
       const password = String(body.password)
       if (password.length < 6) return fail(reply, 400, 'Пароль должен быть от 6 символов')
@@ -89,7 +95,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     }
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
-    return { user: { id: updated.id, username: updated.username, isAdmin: updated.is_admin === 1, quotaBytes: updated.quota_bytes } }
+    return { user: { id: updated.id, username: updated.username, isAdmin: updated.is_admin === 1, quotaBytes: updated.quota_bytes, storagePath: updated.storage_path} }
   })
 
   app.delete('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
@@ -223,7 +229,6 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       const newDir = path.resolve(String(body.storageDir).trim())
       const oldDir = path.resolve(getFilesDir())
       
-      // Асинхронное перемещение директории
       if (newDir !== oldDir) {
         try {
           await fs.promises.mkdir(newDir, { recursive: true })

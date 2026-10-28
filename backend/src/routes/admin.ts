@@ -65,43 +65,46 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const id = Number((req.params as any).id)
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
     if (!row) return fail(reply, 404, 'Пользователь не найден')
-    const oldDir = getUserFilesDir(id)
     const body = req.body as any
     const updates: string[] = []
     const params: any[] = []
 
-    if (body.quotaBytes !== undefined && body.quotaBytes !== null) {
+    if (body?.quotaBytes !== undefined && body?.quotaBytes !== null && body?.quotaBytes !== '') {
       const q = Number(body.quotaBytes)
       if (Number.isNaN(q) || q < 0) return fail(reply, 400, 'Некорректная квота')
       updates.push('quota_bytes = ?')
       params.push(q)
     }
-    if (updates.length) {
-      params.push(id)
-      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
-    }
-    if (body.isAdmin !== undefined) {
+
+    if (body?.isAdmin !== undefined) {
       updates.push('is_admin = ?')
-      params.push(body.isAdmin ? 1 : 0)
+      params.push(body.isAdmin === true || body.isAdmin === 1 ? 1 : 0)
     }
-    if (body.storagePath !== undefined) {
+
+    if (body?.storagePath !== undefined) {
       const sp = body.storagePath === null ? null : String(body.storagePath).trim()
       updates.push('storage_path = ?')
       params.push(sp === '' ? null : sp)
     }
-    if (body.password !== undefined && body.password !== null && body.password !== '') {
+
+    if (body?.password !== undefined && body?.password !== null && body?.password !== '') {
       const password = String(body.password)
       if (password.length < 6) return fail(reply, 400, 'Пароль должен быть от 6 символов')
       updates.push('password_hash = ?')
       params.push(hashPassword(password))
     }
 
-    if (updates.length) {
+    const oldDir = getUserFilesDir(id)
+
+    if (updates.length > 0) {
       params.push(id)
       db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     }
+
+    // 2. Получаем новый путь ПОСЛЕ обновления БД
     const newDir = getUserFilesDir(id)
 
+    // 3. Выполняем физический перенос, если пути отличаются
     if (oldDir !== newDir && fs.existsSync(oldDir)) {
       try {
         fs.cpSync(oldDir, newDir, { recursive: true })
@@ -110,6 +113,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         console.error(`Ошибка при переносе файлов юзера ${id}:`, err)
       }
     }
+
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
     return { user: { id: updated.id, username: updated.username, isAdmin: updated.is_admin === 1, quotaBytes: updated.quota_bytes, storagePath: updated.storage_path } }
   })

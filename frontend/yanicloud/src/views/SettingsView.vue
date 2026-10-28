@@ -145,29 +145,80 @@
       </div>
 
       <div v-else class="users-list">
-        <div v-for="user in users" :key="user.id" class="user-row d-flex align-center py-4">
-          <div class="m3-icon-avatar surface-variant mr-4" style="width: 48px; height: 48px; border-radius: 14px">
-            <v-icon icon="mdi-account" color="on-surface-variant" size="26"></v-icon>
-          </div>
-          <div class="flex-grow-1 overflow-hidden">
-            <div class="d-flex align-center">
-              <span class="text-title-medium font-weight-medium text-on-surface mr-3">{{ user.username }}</span>
-              <v-chip v-if="user.isAdmin" size="small" color="primary-container" class="font-weight-medium">
-                <span class="text-on-primary-container">admin</span>
-              </v-chip>
+        <div v-for="user in users" :key="user.id" class="user-block">
+          <div class="user-row d-flex align-center py-4">
+            <div class="m3-icon-avatar surface-variant mr-4" style="width: 48px; height: 48px; border-radius: 14px">
+              <v-icon icon="mdi-account" color="on-surface-variant" size="26"></v-icon>
             </div>
-            <div class="text-body-2 text-on-surface-variant">
-              {{ formatBytes(user.used) }} · {{ user.quotaBytes > 0 ? formatBytes(user.quotaBytes) : 'безлимит' }}
+            <div class="flex-grow-1 overflow-hidden">
+              <div class="d-flex align-center">
+                <span class="text-title-medium font-weight-medium text-on-surface mr-3">{{ user.username }}</span>
+                <v-chip v-if="user.isAdmin" size="small" color="primary-container" class="font-weight-medium">
+                  <span class="text-on-primary-container">admin</span>
+                </v-chip>
+              </div>
+              <div class="text-body-2 text-on-surface-variant">
+                {{ formatBytes(user.used) }} · {{ user.quotaBytes > 0 ? formatBytes(user.quotaBytes) : 'безлимит' }}
+              </div>
             </div>
+            <v-btn icon="mdi-pencil-outline" variant="text" color="on-surface-variant" @click="openEditUser(user)"></v-btn>
+            <v-btn
+              icon="mdi-delete-outline"
+              variant="text"
+              color="error"
+              :disabled="user.id === currentUser?.id"
+              @click="confirmDeleteUser(user)"
+            ></v-btn>
           </div>
-          <v-btn icon="mdi-pencil-outline" variant="text" color="on-surface-variant" @click="openEditUser(user)"></v-btn>
-          <v-btn
-            icon="mdi-delete-outline"
-            variant="text"
-            color="error"
-            :disabled="user.id === currentUser?.id"
-            @click="confirmDeleteUser(user)"
-          ></v-btn>
+
+          <!-- КАРТОЧКА ПЕРЕНОСА НА ДРУГОЙ ДИСК -->
+          <template v-for="m in [migrationFor(user)]" :key="'mig-' + user.id">
+            <v-expand-transition>
+              <div v-if="m" class="mig-card" :class="'mig-card--' + migKind(m)">
+                <div class="d-flex align-center" style="gap: 10px">
+                  <span v-if="m.active" class="mig-pulse"></span>
+                  <v-icon v-else-if="m.status === 'done'" icon="mdi-check-circle-outline" size="20" color="primary"></v-icon>
+                  <v-icon v-else icon="mdi-alert-circle-outline" size="20" color="error"></v-icon>
+                  <span class="text-title-small font-weight-medium">{{ migLabel(m) }}</span>
+                  <span v-if="m.active && m.progress != null" class="mig-percent">{{ migPercent(m) }}%</span>
+                  <v-spacer></v-spacer>
+                  <span v-if="m.active && speeds[user.id]" class="text-body-2 text-on-surface-variant">
+                    {{ formatBytes(speeds[user.id]) }}/с<template v-if="etaText(m)"> · осталось {{ etaText(m) }}</template>
+                  </span>
+                  <v-btn
+                    v-if="!m.active"
+                    icon="mdi-close"
+                    size="x-small"
+                    variant="text"
+                    color="on-surface-variant"
+                    @click="hideFinished(user.id)"
+                  ></v-btn>
+                </div>
+
+                <div class="d-flex align-center flex-wrap my-2" style="gap: 6px">
+                  <code class="mig-path">{{ m.fromDir ?? '—' }}</code>
+                  <v-icon icon="mdi-arrow-right" size="16" color="on-surface-variant"></v-icon>
+                  <code class="mig-path">{{ m.toDir ?? '—' }}</code>
+                </div>
+
+                <div class="mig-track">
+                  <div class="mig-fill" :class="'mig-fill--' + migKind(m)" :style="migFillStyle(m)"></div>
+                </div>
+
+                <div class="mt-2 text-body-2" :class="m.status === 'failed' ? 'text-error' : 'text-on-surface-variant'">
+                  <template v-if="m.status === 'failed'">
+                    {{ m.error ?? 'Не удалось завершить перенос. Данные не пострадали — старая папка на месте.' }}
+                  </template>
+                  <template v-else-if="m.status === 'done'">
+                    Все файлы на новом месте, старая копия удалена.
+                  </template>
+                  <template v-else>
+                    {{ formatBytes(m.copiedBytes) }} из {{ formatBytes(m.totalBytes) }}
+                  </template>
+                </div>
+              </div>
+            </v-expand-transition>
+          </template>
         </div>
       </div>
     </div>
@@ -181,7 +232,40 @@
         <v-text-field v-model="userForm.username" label="Логин" variant="outlined" :disabled="!!editingUser" class="mb-3"></v-text-field>
         <v-text-field v-model="userForm.password" :label="editingUser ? 'Новый пароль (необязательно)' : 'Пароль'" variant="outlined" :type="showPw ? 'text' : 'password'" :append-inner-icon="showPw ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" @click:append-inner="showPw = !showPw" class="mb-3"></v-text-field>
         <v-text-field v-model="userForm.quotaGb" label="Квота, ГБ (0 — безлимит)" type="number" variant="outlined" class="mb-3"></v-text-field>
-        <v-text-field v-model="userForm.storagePath" label="Путь к диску (пусто = общий)" variant="outlined" class="mb-4"></v-text-field>
+        <v-text-field
+          v-model="userForm.storagePath"
+          label="Диск пользователя (пусто = общее хранилище)"
+          variant="outlined"
+          class="mb-2"
+          :disabled="editingMigrationActive"
+          :persistent-hint="editingMigrationActive"
+          :hint="editingMigrationActive ? 'Идёт перенос файлов — путь заблокирован до завершения' : ''"
+        ></v-text-field>
+        <div v-if="disks.length && !editingMigrationActive" class="d-flex flex-wrap mb-3" style="gap: 8px">
+          <v-chip
+            v-for="d in disks"
+            :key="d.path"
+            variant="tonal"
+            size="small"
+            style="cursor: pointer"
+            :title="'свободно ' + formatBytes(d.free)"
+            @click="userForm.storagePath = d.path"
+          >
+            <v-icon icon="mdi-harddisk" start size="14"></v-icon>
+            {{ d.path }}
+          </v-chip>
+        </div>
+        <v-alert
+          v-if="willMigrate"
+          type="info"
+          variant="tonal"
+          density="compact"
+          icon="mdi-folder-move-outline"
+          class="mb-4"
+        >
+          При сохранении запустится перенос данных (~{{ formatBytes(editingUser?.used ?? 0) }}): файлы будут скопированы
+          и проверены, старая копия удалится только после успешной сверки.
+        </v-alert>
         <v-switch v-model="userForm.isAdmin" color="primary" label="Администратор" class="mb-4" hide-details></v-switch>
         <div class="d-flex justify-end gap-4 mt-2">
           <v-btn variant="text" class="text-none" @click="userDialog = false">Отмена</v-btn>
@@ -213,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useTheme } from 'vuetify'
 import {
   getStorage,
@@ -224,6 +308,7 @@ import {
   adminGetSettings,
   adminUpdateSettings,
   adminGetDisks,
+  adminGetUserMigration,
   uploadBanner,
   deleteBanner,
   ApiError,
@@ -231,6 +316,7 @@ import {
   type AdminSettings,
   type AdminDisk,
   type StorageInfo,
+  type Migration,
 } from '@/api'
 import { currentUser } from '@/store/auth'
 import { formatBytes } from '@/utils/format'
@@ -333,6 +419,136 @@ function bytesToGb(b: number): string {
   return String(Math.round((b / 1024 ** 3) * 100) / 100)
 }
 
+// ---------- ПЕРЕНОС ПОЛЬЗОВАТЕЛЯ НА ДРУГОЙ ДИСК ----------
+const migrations = ref<Record<number, Migration>>({})
+const speeds = ref<Record<number, number>>({})
+const hiddenFinished = ref<Record<number, boolean>>({})
+const speedSamples = new Map<number, { bytes: number; at: number; speed: number }>()
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+
+const MIG_LABELS: Record<string, string> = {
+  preparing: 'Подготовка',
+  copying: 'Копирование',
+  verifying: 'Проверка копии',
+  switching: 'Переключение',
+  resyncing: 'Досинхронизация',
+  cleaning: 'Очистка старого диска',
+  done: 'Переезд завершён',
+  failed: 'Ошибка переезда',
+}
+
+function migLabel(m: Migration): string {
+  return MIG_LABELS[m.status] ?? m.status
+}
+
+function migKind(m: Migration): 'progress' | 'busy' | 'done' | 'failed' {
+  if (m.status === 'done') return 'done'
+  if (m.status === 'failed') return 'failed'
+  if ((m.status === 'copying' || m.status === 'resyncing') && m.progress != null) return 'progress'
+  return 'busy'
+}
+
+function migPercent(m: Migration): number {
+  return Math.min(100, Math.floor((m.progress ?? 0) * 100))
+}
+
+function migFillStyle(m: Migration): Record<string, string> {
+  const k = migKind(m)
+  if (k === 'done' || k === 'failed') return { width: '100%' }
+  if (k === 'progress') return { width: `${Math.max(2, (m.progress ?? 0) * 100)}%` }
+  return {}
+}
+
+function etaText(m: Migration): string {
+  const sp = speeds.value[m.userId]
+  if (!sp || m.progress == null || m.totalBytes <= m.copiedBytes) return ''
+  const sec = Math.round((m.totalBytes - m.copiedBytes) / sp)
+  if (sec < 45) return 'меньше минуты'
+  if (sec < 3600) return `~${Math.max(1, Math.round(sec / 60))} мин`
+  return `~${(sec / 3600).toFixed(1)} ч`
+}
+
+function migrationFor(user: AdminUser): Migration | null {
+  const m = migrations.value[user.id]
+  if (!m) return null
+  if (!m.active && hiddenFinished.value[user.id]) return null
+  return m
+}
+
+function hideFinished(id: number): void {
+  hiddenFinished.value = { ...hiddenFinished.value, [id]: true }
+}
+
+function applyMigration(m: Migration): void {
+  const prev = migrations.value[m.userId]
+  if (prev?.active && !m.active) {
+    if (m.status === 'done') notify('Переезд завершён — файлы на новом месте')
+    else if (m.status === 'failed') notify('Ошибка переезда: ' + (m.error ?? 'неизвестная ошибка'), 'error')
+    load()
+  }
+  migrations.value = { ...migrations.value, [m.userId]: m }
+  if (m.active) schedulePoll()
+  else speedSamples.delete(m.userId)
+}
+
+function sampleSpeed(m: Migration): void {
+  if (!m.active || (m.status !== 'copying' && m.status !== 'resyncing')) {
+    speeds.value = { ...speeds.value, [m.userId]: 0 }
+    return
+  }
+  const now = Date.now()
+  const prev = speedSamples.get(m.userId)
+  if (!prev) {
+    speedSamples.set(m.userId, { bytes: m.copiedBytes, at: now, speed: 0 })
+    return
+  }
+  const dt = (now - prev.at) / 1000
+  if (dt < 0.3) return
+  const inst = Math.max(0, (m.copiedBytes - prev.bytes) / dt)
+  const speed = prev.speed ? prev.speed * 0.6 + inst * 0.4 : inst
+  speedSamples.set(m.userId, { bytes: m.copiedBytes, at: now, speed })
+  speeds.value = { ...speeds.value, [m.userId]: speed }
+}
+
+function schedulePoll(): void {
+  if (pollTimer !== null) return
+  pollTimer = setTimeout(async () => {
+    pollTimer = null
+    const activeIds = Object.values(migrations.value)
+      .filter((m) => m.active)
+      .map((m) => m.userId)
+    for (const id of activeIds) {
+      try {
+        const { migration } = await adminGetUserMigration(id)
+        if (migration) {
+          sampleSpeed(migration)
+          applyMigration(migration)
+        }
+      } catch {
+        /* сетевая осечка — пережидаем до следующего тика */
+      }
+    }
+    if (Object.values(migrations.value).some((m) => m.active)) schedulePoll()
+  }, 1500)
+}
+
+const editingMigrationActive = computed(() => {
+  const id = editingUser.value?.id
+  return id != null && !!migrations.value[id]?.active
+})
+
+const willMigrate = computed(() => {
+  if (!editingUser.value || !userDialog.value) return false
+  const cur = (editingUser.value as any).storagePath ?? null
+  const next = userForm.value.storagePath.trim() || null
+  return next !== cur
+})
+
+onBeforeUnmount(() => {
+  if (pollTimer !== null) clearTimeout(pollTimer)
+})
+// ---------- КОНЕЦ БЛОКА ПЕРЕНОСА ----------
+
 async function load(): Promise<void> {
   try {
     ownStorage.value = await getStorage()
@@ -349,6 +565,10 @@ async function load(): Promise<void> {
     disks.value = d
     defaultQuotaInput.value = bytesToGb(s.defaultQuota)
     storageDirInput.value = s.storageDir
+    // подхватываем активные/завершённые переносы из списка пользователей
+    for (const usr of users.value as any[]) {
+      if (usr.migration) applyMigration(usr.migration)
+    }
   } catch (e) {
     notify(e instanceof ApiError ? e.message : 'Ошибка загрузки настроек', 'error')
   } finally {
@@ -400,12 +620,12 @@ function openAddUser(): void {
 
 function openEditUser(user: AdminUser): void {
   editingUser.value = user
-  userForm.value = { 
-    username: user.username, 
-    password: '', 
-    quotaGb: bytesToGb(user.quotaBytes), 
+  userForm.value = {
+    username: user.username,
+    password: '',
+    quotaGb: bytesToGb(user.quotaBytes),
     isAdmin: user.isAdmin,
-    storagePath: (user as any).storagePath || '' 
+    storagePath: (user as any).storagePath || ''
   }
   showPw.value = false
   userDialog.value = true
@@ -424,8 +644,9 @@ async function saveUser(): Promise<void> {
     if (editingUser.value) {
       const data: any = { quotaBytes: payload.quotaBytes, isAdmin: payload.isAdmin, storagePath: payload.storagePath }
       if (payload.password) data.password = payload.password
-      await adminUpdateUser(editingUser.value.id, data)
-      notify('Пользователь обновлён')
+      const res: any = await adminUpdateUser(editingUser.value.id, data)
+      if (res?.migration) applyMigration(res.migration)
+      notify(res?.migration?.active ? 'Запущен перенос файлов на новый диск' : 'Пользователь обновлён')
     } else {
       await adminCreateUser(payload)
       notify('Пользователь создан')
@@ -466,8 +687,15 @@ onMounted(load)
 .users-list {
   border-top: 1px solid var(--md-sys-color-outline-variant);
 }
-.user-row {
+.user-block {
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.user-row {
+  border-radius: 12px;
+  transition: background-color 0.2s;
+}
+.user-row:hover {
+  background-color: var(--md-sys-color-surface-container-high);
 }
 .disks-list {
   border-top: 1px solid var(--md-sys-color-outline-variant);
@@ -510,5 +738,87 @@ code {
   background: var(--md-sys-color-surface-container-highest);
   padding: 2px 6px;
   border-radius: 6px;
+}
+
+/* ── Карточка переноса на другой диск ── */
+.mig-card {
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 2px 0 18px;
+  background: var(--md-sys-color-surface-container-high);
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+.mig-card--done {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, var(--md-sys-color-surface-container-high));
+  border-color: transparent;
+}
+.mig-card--failed {
+  background: color-mix(in srgb, var(--md-sys-color-error, #b3261e) 12%, var(--md-sys-color-surface-container-high));
+  border-color: transparent;
+}
+.mig-pulse {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
+  animation: mig-pulse 1.4s ease-in-out infinite;
+}
+@keyframes mig-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+.mig-percent {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--md-sys-color-primary);
+}
+.mig-path {
+  font-size: 12px;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mig-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--md-sys-color-surface-container-highest);
+  overflow: hidden;
+}
+.mig-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--md-sys-color-primary);
+  position: relative;
+  overflow: hidden;
+  transition: width 0.7s cubic-bezier(0.2, 0, 0, 1);
+}
+.mig-fill--progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 25%, rgba(255, 255, 255, 0.5) 50%, transparent 75%);
+  transform: translateX(-100%);
+  animation: mig-shimmer 2s infinite;
+}
+@keyframes mig-shimmer {
+  to { transform: translateX(100%); }
+}
+.mig-fill--busy {
+  width: 32%;
+  animation: mig-indeterminate 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes mig-indeterminate {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(420%); }
+}
+.mig-fill--done {
+  background: var(--md-sys-color-primary);
+}
+.mig-fill--failed {
+  background: var(--md-sys-color-error, #b3261e);
+  transition: none;
 }
 </style>

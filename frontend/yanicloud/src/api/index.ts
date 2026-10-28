@@ -14,6 +14,7 @@ export interface AdminUser {
   used: number
   createdAt: number
   storagePath?: string | null
+  migration?: Migration | null
 }
 
 export interface AdminSettings {
@@ -31,6 +32,21 @@ export interface AdminDisk {
   free: number
   current: boolean
   device: string | null
+}
+
+export interface Migration {
+  userId: number
+  status: 'preparing' | 'copying' | 'verifying' | 'switching' | 'resyncing' | 'cleaning' | 'done' | 'failed'
+  active: boolean
+  fromDir: string | null
+  toDir: string | null
+  totalBytes: number
+  copiedBytes: number
+  progress: number | null
+  error: string | null
+  backupDir: string | null
+  startedAt: number | null
+  finishedAt: number | null
 }
 
 export interface NodeItem {
@@ -286,13 +302,12 @@ export async function adminCreateUser(data: {
 
 export async function adminUpdateUser(
   id: number,
-  data: { quotaBytes?: number | null; isAdmin?: boolean; password?: string }
-): Promise<AdminUser> {
-  const res = await request<{ user: AdminUser }>(`/api/admin/users/${id}`, {
+  data: { quotaBytes?: number | null; isAdmin?: boolean; password?: string; storagePath?: string | null }
+): Promise<{ user: AdminUser; migration: Migration | null }> {
+  return request(`/api/admin/users/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   })
-  return res.user
 }
 
 export async function adminDeleteUser(id: number): Promise<void> {
@@ -301,6 +316,11 @@ export async function adminDeleteUser(id: number): Promise<void> {
 
 export async function adminGetSettings(): Promise<AdminSettings> {
   return request<AdminSettings>('/api/admin/settings')
+}
+
+export async function adminGetUserMigration(id: number): Promise<Migration | null> {
+  const res = await request<{ migration: Migration | null }>(`/api/admin/users/${id}/migration`)
+  return res.migration
 }
 
 export async function adminUpdateSettings(data: {

@@ -5,9 +5,7 @@
         <v-icon icon="mdi-cloud" color="primary" size="64"></v-icon>
       </div>
       <h1 class="auth-title">YaniCloud</h1>
-      <p class="auth-subtitle">
-        {{ mode === 'login' ? 'С возвращением! Войдите в аккаунт.' }}
-      </p>
+      <p class="auth-subtitle">С возвращением! Войдите в аккаунт.</p>
 
       <v-form @submit.prevent="submit">
         <v-text-field
@@ -49,19 +47,10 @@
           class="auth-submit"
         >
           <span class="text-on-primary-container text-title-medium font-weight-medium text-none">
-            {{ mode === 'login' ? 'Войти' : 'Зарегистрироваться' }}
+            Войти
           </span>
         </v-btn>
       </v-form>
-
-      <div class="auth-switch">
-        <span class="text-on-surface-variant">
-          {{ mode === 'login' ? 'Нет аккаунта?' : 'Уже есть аккаунт?' }}
-        </span>
-        <v-btn variant="text" color="primary" class="text-none font-weight-medium" @click="toggleMode">
-          {{ mode === 'login' ? 'Создать' : 'Войти' }}
-        </v-btn>
-      </div>
     </div>
   </div>
 </template>

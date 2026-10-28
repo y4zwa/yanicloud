@@ -17,9 +17,11 @@
 
     <!-- ХИРО БЛОК (только корень) -->
     <div v-if="isRoot" class="m3-hero-section mb-12">
-      <div class="m3-card m3-hero-text-card pa-10 d-flex flex-column justify-center" v-ripple>
-        <h1 class="text-h3 font-weight-medium mb-4 text-on-surface" style="line-height: 1.2;">
-          Ваши файлы <br /><span class="text-primary">всегда с вами</span>
+      <div class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center">
+        <div class="m3-hero-blob m3-hero-blob--1"></div>
+        <div class="m3-hero-blob m3-hero-blob--2"></div>
+        <h1 class="text-h3 font-weight-medium mb-4 text-on-surface hero-title" style="line-height: 1.2;">
+          {{ greeting }}, <br /><span class="text-primary">{{ currentUser?.username || 'друг' }}</span>
         </h1>
         <p class="text-title-medium text-on-surface-variant mb-10" style="line-height: 1.6;">
           Храните, делитесь и работайте из любой точки мира. Безопасно и быстро.
@@ -65,27 +67,34 @@
 
     <!-- ВИДЖЕТЫ (только корень) -->
     <div v-if="isRoot" class="m3-widgets-row d-flex gap-6 mb-12">
-      <div class="m3-card m3-widget-card d-flex align-center px-8 py-6 flex-grow-1" v-ripple>
+      <!-- Хранилище: информационный виджет, считаем по диску, где реально лежат файлы. Без нажатий. -->
+      <div class="m3-card m3-widget-card m3-widget-card--static d-flex align-center px-8 py-6 flex-grow-1">
         <div class="m3-progress-wrapper mr-8">
           <v-progress-circular
             :model-value="storagePercent"
             color="primary"
-            size="80"
-            width="8"
+            size="88"
+            width="9"
             class="font-weight-medium text-title-medium"
           >
             {{ storagePercentLabel }}
           </v-progress-circular>
         </div>
-        <div>
+        <div class="min-width-0 flex-grow-1">
           <div class="text-title-medium text-on-surface-variant mb-2">Занято хранилища</div>
-          <div class="text-h5 font-weight-medium text-on-surface">
+          <div class="text-h5 font-weight-medium text-on-surface text-truncate">
             {{ storageLabel }}
           </div>
+          <div class="d-flex align-center mt-3" style="gap: 8px">
+            <v-icon icon="mdi-harddisk" size="18" color="on-surface-variant"></v-icon>
+            <span class="text-body-2 text-on-surface-variant">
+              Свободно на диске: {{ formatBytes(storage.diskFree) }} из {{ formatBytes(storage.diskTotal) }}
+            </span>
+          </div>
+          <div v-if="storageDir" class="storage-dir text-body-2 text-on-surface-variant mt-1">{{ storageDir }}</div>
         </div>
-        <v-spacer></v-spacer>
-        <v-btn icon="mdi-chevron-right" variant="text" color="on-surface-variant" size="large"></v-btn>
       </div>
+      <!-- Избранное: кликабельное -->
       <div class="m3-card m3-widget-card d-flex align-center px-8 py-6 flex-grow-1" v-ripple @click="$emit('goto-favorites')">
         <div class="m3-icon-avatar primary-container mr-8">
           <v-icon icon="mdi-star" color="on-primary-container" size="40"></v-icon>
@@ -340,7 +349,7 @@
       </div>
     </v-dialog>
 
-    <!-- УВЕДОМЛЕНИЯ -->
+    
     <v-snackbar v-model="snackbar" :color="snackColor" timeout="3000" rounded="pill">
       {{ snackText }}
     </v-snackbar>
@@ -369,6 +378,7 @@ import { pendingFolder } from '@/store/nav'
 import { openPreview } from '@/store/preview'
 import { playTrack } from '@/store/player'
 import { startPinDrag, endPinDrag, draggingPin } from '@/store/pins'
+import { currentUser } from '@/store/auth'
 import FileThumb from '@/components/FileThumb.vue'
 import { useThumbs } from '@/composables/useThumbs'
 import { isAudio } from '@/utils/preview'
@@ -428,6 +438,17 @@ const breadcrumb = computed(() =>
 )
 const folders = computed(() => items.value.filter((n) => n.type === 'folder'))
 const files = computed(() => items.value.filter((n) => n.type === 'file'))
+
+const greeting = computed(() => {
+  const h = new Date().getHours()
+  if (h < 5) return 'Доброй ночи'
+  if (h < 12) return 'Доброе утро'
+  if (h < 18) return 'Добрый день'
+  return 'Добрый вечер'
+})
+
+
+const storageDir = computed(() => ((storage.value as any).dir as string | undefined) ?? '')
 
 const storagePercent = computed(() => {
   if (storage.value.quota > 0) return Math.min(100, (storage.value.used / storage.value.quota) * 100)
@@ -643,5 +664,60 @@ onMounted(() => {
   border-radius: 28px;
   padding: 32px;
   border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+
+.m3-widget-card--static {
+  cursor: default;
+}
+.m3-widget-card--static:hover {
+  background-color: var(--md-sys-color-surface-container) !important;
+}
+
+
+.m3-hero-card {
+  position: relative;
+  overflow: hidden;
+}
+.m3-hero-blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.m3-hero-blob--1 {
+  width: 280px;
+  height: 280px;
+  top: -90px;
+  right: -70px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-primary) 24%, transparent) 0%, transparent 70%);
+}
+.m3-hero-blob--2 {
+  width: 220px;
+  height: 220px;
+  bottom: -80px;
+  left: -60px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 18%, transparent) 0%, transparent 70%);
+}
+.hero-title {
+  position: relative;
+  z-index: 1;
+}
+
+
+.storage-dir {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.75;
+}
+
+
+.m3-folder-card,
+.m3-file-card {
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s;
+}
+.m3-folder-card:hover,
+.m3-file-card:hover {
+  transform: translateY(-4px);
 }
 </style>

@@ -17,30 +17,35 @@
 
     <!-- ХИРО БЛОК (только корень) -->
     <div v-if="isRoot" class="m3-hero-section mb-8">
-      <div
-        ref="heroCardRef"
-        class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center"
-        @mousemove="onHeroMouseMove"
-        @mouseleave="onHeroMouseLeave"
-      >
-        <!-- MATERIAL 3 EXPRESSIVE SHAPES (100% от акцентного цвета --md-sys-color-primary) -->
+      <div class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center">
+        <!-- СПОКОЙНАЯ МЕДЛЕННАЯ КОМПОЗИЦИЯ MATERIAL 3 SHAPES
+             Все 4 фигуры фиксированного размера, плавно и синхронно движутся,
+             с заметным разбросом оттенков от текущего акцентного цвета -->
         <svg
           class="m3-hero-shapes-svg"
           viewBox="0 0 600 420"
           preserveAspectRatio="xMidYMid slice"
           aria-hidden="true"
         >
-          <!-- Слой 1: Большой мягкий 8-лепестковый контур (глубокий фоновый тон акцента) -->
-          <path :d="shapePath1" class="m3-shape m3-shape--tone-1" />
+          <!-- 1. Большой 8-лепестковый M3 Cookie (глубокий тёмный тон акцента) -->
+          <g class="m3-shape-group m3-shape-group--1">
+            <path :d="STATIC_SHAPE_COOKIE" class="m3-shape m3-shape--tone-deep" />
+          </g>
 
-          <!-- Слой 2: Плавный 4-листный клевер M3 снизу справа (средний тон акцента) -->
-          <path :d="shapePath2" class="m3-shape m3-shape--tone-2" />
+          <!-- 2. 4-листный клевер M3 снизу (средний тон акцента) -->
+          <g class="m3-shape-group m3-shape-group--2">
+            <path :d="STATIC_SHAPE_CLOVER" class="m3-shape m3-shape--tone-mid" />
+          </g>
 
-          <!-- Слой 3: Мягкая 12-волновая фигура M3 Sunny (насыщенный тон акцента, без коричневого!) -->
-          <path :d="shapePath3" class="m3-shape m3-shape--tone-3" />
+          <!-- 3. 12-волновая фигура M3 Sunny (насыщенный яркий тон акцента) -->
+          <g class="m3-shape-group m3-shape-group--3">
+            <path :d="STATIC_SHAPE_SUNNY" class="m3-shape m3-shape--tone-vivid" />
+          </g>
 
-          <!-- Слой 4: Малый скруглённый сквиркл-акцент (яркий тон акцента) -->
-          <path :d="shapePath4" class="m3-shape m3-shape--tone-4" />
+          <!-- 4. Мягкий сквиркл M3 справа (светлый пастельный тон акцента) -->
+          <g class="m3-shape-group m3-shape-group--4">
+            <path :d="STATIC_SHAPE_PILL" class="m3-shape m3-shape--tone-soft-light" />
+          </g>
         </svg>
 
         <!-- КОНТЕНТ ХИРО КАРТОЧКИ -->
@@ -230,6 +235,7 @@
             v-ripple
             draggable="true"
             @dragstart="onCardDragStart($event, folder)"
+            @drag="onCardDrag($event, folder)"
             @dragend="onCardDragEnd"
             @click="openFolder(folder)"
           >
@@ -281,6 +287,7 @@
             v-ripple
             draggable="true"
             @dragstart="onCardDragStart($event, file)"
+            @drag="onCardDrag($event, file)"
             @dragend="onCardDragEnd"
             @click="openFile(file)"
           >
@@ -334,6 +341,7 @@
             v-ripple
             draggable="true"
             @dragstart="onCardDragStart($event, file)"
+            @drag="onCardDrag($event, file)"
             @dragend="onCardDragEnd"
             @click="openFile(file, recent)"
           >
@@ -492,7 +500,6 @@ const snackText = ref('')
 const snackColor = ref('primary')
 
 const fileInput = ref<HTMLInputElement>()
-const heroCardRef = ref<HTMLElement | null>(null)
 
 const currentFolderId = computed(() => stack.value[stack.value.length - 1].id)
 const isRoot = computed(() => stack.value.length === 1)
@@ -530,66 +537,25 @@ const storageLabel = computed(() => {
 })
 
 /* ──────────────────────────────────────────────────────────────────────────
-   MATERIAL 3 SHAPE LIBRARY — ПЛАВНЫЙ МОРФИНГ И МЯГКОЕ ДЫХАНИЕ ФИГУР
-   Реакция на курсор ослаблена в 4 раза (деликатный отклик), а сами фигуры
-   плавно перетекают, меняют глубину лепестков и масштаб по кривым Лиссажу.
+   СТАТИЧЕСКАЯ ГЕОМЕТРИЯ ФИГУР MATERIAL 3 (БЕЗ ИСКАЖЕНИЯ РАЗМЕРА)
+   Генерируется один раз с идеальными пропорциями. Само движение — медленное,
+   спокойное вращение и плавание всех 4 фигур через GPU CSS-анимации.
    ────────────────────────────────────────────────────────────────────────── */
-const shapePath1 = ref('')
-const shapePath2 = ref('')
-const shapePath3 = ref('')
-const shapePath4 = ref('')
-
-let shapeRafId: number | null = null
-
-const pointerSpring = {
-  targetX: 0,
-  targetY: 0,
-  x: 0,
-  y: 0,
-  vx: 0,
-  vy: 0,
-}
-
-/**
- * Генерирует идеально гладкий замкнутый SVG-путь для биоморфных фигур M3
- * с поддержкой плавного перетекания лепестков и органической деформации.
- */
-function buildM3MorphPath(
+function createStaticM3ShapePath(
   cx: number,
   cy: number,
   baseR: number,
   lobes: number,
   lobeDepth: number,
-  rotation: number,
-  secondaryLobes: number,
-  secondaryDepth: number,
-  secondaryPhase: number,
-  ellipticity = 0,
-  ellipseAngle = 0
+  rotation = 0
 ): string {
-  const numPts = 72
+  const numPts = 96
   const pts: [number, number][] = []
-
-  const cosE = Math.cos(ellipseAngle)
-  const sinE = Math.sin(ellipseAngle)
 
   for (let i = 0; i < numPts; i++) {
     const a = (i / numPts) * Math.PI * 2
-    // Основная форма M3 (Cookie / Clover / Sunny / Pill)
-    const w1 = Math.cos(a * lobes + rotation) * lobeDepth
-    // Вторичная гармоника (создаёт эффект перетекания формы в реальном времени)
-    const w2 = Math.sin(a * secondaryLobes - secondaryPhase) * secondaryDepth
-    // Мягкая эллиптическая деформация («дыхание» объёма)
-    const w3 = Math.cos(a * 2 - ellipseAngle) * ellipticity
-
-    const r = baseR * (1 + w1 + w2 + w3)
-    const lx = Math.cos(a) * r
-    const ly = Math.sin(a) * r
-
-    pts.push([
-      cx + lx * cosE - ly * sinE * 0.04,
-      cy + ly * cosE + lx * sinE * 0.04,
-    ])
+    const r = baseR * (1 + Math.cos(a * lobes + rotation) * lobeDepth)
+    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r])
   }
 
   const len = pts.length
@@ -607,129 +573,129 @@ function buildM3MorphPath(
   return d + ' Z'
 }
 
-function updateHeroShapes(now: number): void {
-  const t = now * 0.00075
-
-  // Очень мягкая, вязкая пружина для едва заметного параллакса от курсора
-  const stiffness = 0.022
-  const damping = 0.88
-  pointerSpring.vx = (pointerSpring.vx + (pointerSpring.targetX - pointerSpring.x) * stiffness) * damping
-  pointerSpring.vy = (pointerSpring.vy + (pointerSpring.targetY - pointerSpring.y) * stiffness) * damping
-  pointerSpring.x += pointerSpring.vx
-  pointerSpring.y += pointerSpring.vy
-
-  const px = pointerSpring.x
-  const py = pointerSpring.y
-
-  // 1. Большой фоновый 8-лепестковый M3 Cookie в правом верхнем углу
-  // Медленно дышит по радиусу и плавно меняет выраженность лепестков
-  const r1 = 192 + Math.sin(t * 0.85) * 12
-  const depth1 = 0.068 + Math.sin(t * 0.95) * 0.028
-  shapePath1.value = buildM3MorphPath(
-    528 + Math.sin(t * 0.65) * 18 + px * 4.5,
-    82 + Math.cos(t * 0.52) * 16 + py * 4.0,
-    r1,
-    8,
-    depth1,
-    t * 0.28,
-    4,
-    0.024 * Math.cos(t * 0.7),
-    t * 0.6,
-    0.025 * Math.sin(t * 0.5),
-    t * 0.3
-  )
-
-  // 2. 4-листный клевер M3 (4-Leaf Clover) снизу справа
-  // Плавно морфируется от почти круглого сквиркла к глубокому клеверу и обратно
-  const r2 = 152 + Math.cos(t * 0.78 + 1.2) * 11
-  const depth2 = 0.105 + Math.cos(t * 0.88) * 0.042
-  shapePath2.value = buildM3MorphPath(
-    492 + Math.cos(t * 0.58) * 20 - px * 5.5,
-    350 + Math.sin(t * 0.72) * 16 - py * 5.0,
-    r2,
-    4,
-    depth2,
-    -t * 0.34 + 0.5,
-    8,
-    0.022 * Math.sin(t * 0.95),
-    -t * 0.75,
-    0.03 * Math.cos(t * 0.62),
-    -t * 0.25
-  )
-
-  // 3. 12-волновая мягкая фигура M3 Sunny ближе к центру-справа
-  // Описывает плавную восьмёрку Лиссажу и мягко пульсирует лучами
-  const r3 = 96 + Math.sin(t * 1.15 + 2.4) * 9
-  const depth3 = 0.055 + Math.sin(t * 1.25 + 0.8) * 0.025
-  shapePath3.value = buildM3MorphPath(
-    422 + Math.sin(t * 0.74 + 1.7) * 22 + px * 7.0,
-    208 + Math.sin(t * 1.48 + 0.6) * 16 + py * 6.0,
-    r3,
-    12,
-    depth3,
-    t * 0.42,
-    6,
-    0.02 * Math.cos(t * 1.1),
-    t * 0.85,
-    0.02 * Math.sin(t * 0.8),
-    t * 0.4
-  )
-
-  // 4. Малый органический M3 Squircle / Pebble справа по центру
-  const r4 = 58 + Math.cos(t * 1.3 + 0.5) * 6
-  const depth4 = 0.085 + Math.sin(t * 1.05) * 0.035
-  shapePath4.value = buildM3MorphPath(
-    556 + Math.cos(t * 0.9 + 0.8) * 14 + px * 3.5,
-    224 + Math.sin(t * 0.82) * 18 + py * 3.5,
-    r4,
-    4,
-    depth4,
-    t * 0.52 + 0.4,
-    3,
-    0.026 * Math.sin(t * 0.9),
-    t * 0.7,
-    0.025,
-    t * 0.5
-  )
-
-  if (isRoot.value) {
-    shapeRafId = requestAnimationFrame(updateHeroShapes)
-  }
-}
-
-function startShapesLoop(): void {
-  stopShapesLoop()
-  updateHeroShapes(performance.now())
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    stopShapesLoop()
-  }
-}
-
-function stopShapesLoop(): void {
-  if (shapeRafId !== null) {
-    cancelAnimationFrame(shapeRafId)
-    shapeRafId = null
-  }
-}
-
-function onHeroMouseMove(e: MouseEvent): void {
-  const card = heroCardRef.value
-  if (!card) return
-  const rect = card.getBoundingClientRect()
-  if (!rect.width || !rect.height) return
-  pointerSpring.targetX = ((e.clientX - rect.left) / rect.width - 0.5) * 2
-  pointerSpring.targetY = ((e.clientY - rect.top) / rect.height - 0.5) * 2
-}
-
-function onHeroMouseLeave(): void {
-  pointerSpring.targetX = 0
-  pointerSpring.targetY = 0
-}
+// Центры фигур в системе координат 600x420
+const STATIC_SHAPE_COOKIE = createStaticM3ShapePath(525, 86, 184, 8, 0.068, 0.2)
+const STATIC_SHAPE_CLOVER = createStaticM3ShapePath(490, 352, 146, 4, 0.11, 0.6)
+const STATIC_SHAPE_SUNNY = createStaticM3ShapePath(425, 206, 90, 12, 0.058, 0.1)
+const STATIC_SHAPE_PILL = createStaticM3ShapePath(556, 224, 54, 4, 0.088, 0.8)
 
 /* ──────────────────────────────────────────────────────────────────────────
-   НАДЁЖНЫЙ DRAG-AND-DROP ДЛЯ ЗАКРЕПОВ (БЕЗ БАГОВ ПРИ РЫВКЕ)
+   ЧИСТЫЙ ФАНТОМ ПЕРЕТАСКИВАНИЯ (БЕЗ ЧЁРНЫХ КВАДРАТНЫХ УГЛОВ И БЕЗ V-RIPPLE)
+   + АКТИВАЦИЯ ПАНЕЛИ ЗАКРЕПОВ ТОЛЬКО У ЛЕВОГО КРАЯ ЭКРАНА
    ────────────────────────────────────────────────────────────────────────── */
+let dragGhostCanvas: HTMLCanvasElement | null = null
+let activeDraggedNode: NodeItem | null = null
+let isInternalCardDragging = false
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number
+): void {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r)
+  ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+/**
+ * Создаёт идеально скруглённый drag-image на прозрачном Canvas,
+ * чтобы браузер не рисовал чёрные квадратные углы и круги от v-ripple.
+ */
+function buildCleanDragGhost(cardEl: HTMLElement, node: NodeItem): HTMLCanvasElement {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  const w = 220
+  const h = 148
+  const radius = 24
+
+  if (!dragGhostCanvas) {
+    dragGhostCanvas = document.createElement('canvas')
+  }
+  dragGhostCanvas.width = w * dpr
+  dragGhostCanvas.height = h * dpr
+  dragGhostCanvas.style.width = `${w}px`
+  dragGhostCanvas.style.height = `${h}px`
+
+  const ctx = dragGhostCanvas.getContext('2d')!
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, w, h)
+
+  const cardStyle = getComputedStyle(cardEl)
+  const rootStyle = getComputedStyle(document.documentElement)
+
+  const bg =
+    cardStyle.backgroundColor && cardStyle.backgroundColor !== 'rgba(0, 0, 0, 0)'
+      ? cardStyle.backgroundColor
+      : rootStyle.getPropertyValue('--md-sys-color-surface-container-high').trim() || '#26242b'
+
+  const primary =
+    rootStyle.getPropertyValue('--md-sys-color-primary').trim() || '#c7bfff'
+
+  const textOnSurface =
+    rootStyle.getPropertyValue('--md-sys-color-on-surface').trim() || '#e6e1e5'
+
+  const textVariant =
+    rootStyle.getPropertyValue('--md-sys-color-on-surface-variant').trim() || '#cac4d0'
+
+  // Скруглённая плашка карточки (без каких-либо чёрных углов снаружи)
+  drawRoundedRect(ctx, 0, 0, w, h, radius)
+  ctx.fillStyle = bg
+  ctx.fill()
+
+  // Рисуем аккуратную иконку папки/файла сверху слева
+  ctx.fillStyle = primary
+  if (node.type === 'folder') {
+    // Форма иконки папки Material 3
+    ctx.beginPath()
+    ctx.moveTo(24, 30)
+    ctx.lineTo(40, 30)
+    ctx.lineTo(45, 35)
+    ctx.lineTo(62, 35)
+    ctx.quadraticCurveTo(66, 35, 66, 39)
+    ctx.lineTo(66, 59)
+    ctx.quadraticCurveTo(66, 63, 62, 63)
+    ctx.lineTo(24, 63)
+    ctx.quadraticCurveTo(20, 63, 20, 59)
+    ctx.lineTo(20, 34)
+    ctx.quadraticCurveTo(20, 30, 24, 30)
+    ctx.closePath()
+    ctx.fill()
+  } else {
+    drawRoundedRect(ctx, 22, 26, 36, 42, 8)
+    ctx.fill()
+  }
+
+  // Название папки/файла шрифтом Nunito
+  ctx.fillStyle = textOnSurface
+  ctx.font = '700 18px "Nunito", sans-serif'
+  const maxTextWidth = w - 44
+  let title = node.name
+  if (ctx.measureText(title).width > maxTextWidth) {
+    while (title.length > 1 && ctx.measureText(title + '…').width > maxTextWidth) {
+      title = title.slice(0, -1)
+    }
+    title += '…'
+  }
+  ctx.fillText(title, 22, 102)
+
+  // Подпись количества элементов или типа
+  ctx.fillStyle = textVariant
+  ctx.font = '500 14px "Nunito", sans-serif'
+  const sub = node.type === 'folder' ? `${node.items ?? 0} элементов` : 'Файл'
+  ctx.fillText(sub, 22, 124)
+
+  return dragGhostCanvas
+}
+
 function cleanupPinDragState(): void {
+  isInternalCardDragging = false
+  activeDraggedNode = null
   if (draggingPin.value) {
     endPinDrag()
   }
@@ -741,18 +707,49 @@ function cleanupPinDragState(): void {
 }
 
 function onWindowMouseMoveVerifyDrag(e: MouseEvent): void {
-  if (e.buttons === 0 && draggingPin.value) {
+  if (e.buttons === 0 && (draggingPin.value || isInternalCardDragging)) {
     cleanupPinDragState()
   }
 }
 
 function onCardDragStart(e: DragEvent, node: NodeItem): void {
+  isInternalCardDragging = true
+  activeDraggedNode = node
+
+  // 1. Заполняем dataTransfer точно так же, как делает startPinDrag,
+  // НО НЕ включаем draggingPin.value сразу, чтобы боковая панель слева
+  // НЕ перекрашивалась в серый цвет, пока ты просто тягаешь папку по экрану!
   startPinDrag(e, node)
+  endPinDrag()
+
+  // 2. Ставим чистый скруглённый фантом без чёрных квадратных углов и без круга ripple
+  const cardEl = e.currentTarget as HTMLElement | null
+  if (cardEl && e.dataTransfer) {
+    const ghost = buildCleanDragGhost(cardEl, node)
+    e.dataTransfer.setDragImage(ghost, 36, 36)
+  }
+
   window.addEventListener('dragend', cleanupPinDragState, true)
   window.addEventListener('drop', cleanupPinDragState, true)
   window.addEventListener('mouseup', cleanupPinDragState, true)
   window.addEventListener('blur', cleanupPinDragState)
   window.addEventListener('mousemove', onWindowMouseMoveVerifyDrag, true)
+}
+
+function onCardDrag(e: DragEvent, node: NodeItem): void {
+  if (!isInternalCardDragging) return
+  // В последний кадр перед отпусканием браузер шлёт clientX = 0, clientY = 0 — игнорируем
+  if (e.clientX === 0 && e.clientY === 0) return
+
+  // Активируем зону закрепов в боковой панели ТОЛЬКО когда папка поднесена к левой панели (<= 115px)
+  const nearSidebar = e.clientX > 0 && e.clientX <= 115
+  if (nearSidebar) {
+    if (!draggingPin.value) {
+      draggingPin.value = activeDraggedNode ?? node
+    }
+  } else if (draggingPin.value) {
+    endPinDrag()
+  }
 }
 
 function onCardDragEnd(): void {
@@ -915,7 +912,7 @@ async function upload(files: File[]): Promise<void> {
 }
 
 function onDragOver(e: DragEvent): void {
-  if (draggingPin.value) return
+  if (isInternalCardDragging || draggingPin.value) return
   if (e.dataTransfer?.types.includes('Files')) {
     e.preventDefault()
     dragOver.value = true
@@ -923,13 +920,13 @@ function onDragOver(e: DragEvent): void {
 }
 
 function onDragLeave(e: DragEvent): void {
-  if (draggingPin.value) return
+  if (isInternalCardDragging || draggingPin.value) return
   if (!e.relatedTarget) dragOver.value = false
 }
 
 function onDrop(e: DragEvent): void {
   dragOver.value = false
-  if (draggingPin.value) {
+  if (isInternalCardDragging || draggingPin.value) {
     cleanupPinDragState()
     return
   }
@@ -948,25 +945,17 @@ function handlePendingFolder(): void {
 
 watch(pendingFolder, () => handlePendingFolder())
 
-watch(isRoot, (root) => {
-  if (root) startShapesLoop()
-  else stopShapesLoop()
-})
-
 onMounted(() => {
   if (pendingFolder.value) handlePendingFolder()
   else load()
-
-  if (isRoot.value) startShapesLoop()
 })
 
 onBeforeUnmount(() => {
-  stopShapesLoop()
   cleanupPinDragState()
 })
 </script>
 
-<!-- Глобальное подключение Nunito и принудительное применение ко всем Vuetify-классам -->
+<!-- Глобальное подключение Nunito и применение ко всем заголовкам и утилитам Vuetify -->
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
 
@@ -1000,10 +989,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* ═══════════════════════════════════════════════════════════════════════════
-   1. MATERIAL 3 HERO CARD & ACCENT-ADAPTIVE SHAPES (БЕЗ КОРИЧНЕВОГО ОТТЕНКА)
-   Все 4 фигуры берут цвет напрямую от текущего акцентного цвета
-   (--md-sys-color-primary или rgb(var(--v-theme-primary))), смешивая его
-   с фоном карточки (--md-sys-color-surface-container) в разных пропорциях.
+   1. MATERIAL 3 HERO CARD — МЕДЛЕННАЯ СПОКОЙНАЯ АНИМАЦИЯ И КОНТРАСТНЫЕ ОТТЕНКИ
+   Все 4 фигуры сохраняют постоянный размер (без «желе») и плавно вращаются/дрейфуют.
+   Оттенки имеют чёткий разброс по яркости и насыщенности от акцентного цвета.
    ═══════════════════════════════════════════════════════════════════════════ */
 .m3-hero-card {
   position: relative;
@@ -1028,8 +1016,10 @@ onBeforeUnmount(() => {
   transition: fill 0.35s ease;
 }
 
-/* Тон 1: Мягкий глубокий оттенок акцента (16% акцента + 84% фона карточки) */
-.m3-shape--tone-1 {
+/* 4 заметно различающихся тональных оттенка от одного акцентного цвета */
+
+/* 1. Глубокий тёмный фоновый тон (большой 8-лепестковый Cookie сверху) */
+.m3-shape--tone-deep {
   fill: color-mix(
     in srgb,
     var(--hero-accent) 16%,
@@ -1037,31 +1027,86 @@ onBeforeUnmount(() => {
   );
 }
 
-/* Тон 2: Средний тональный оттенок акцента (27% акцента + 73% фона карточки) */
-.m3-shape--tone-2 {
+/* 2. Насыщенный средний тон (4-листный клевер снизу) */
+.m3-shape--tone-mid {
   fill: color-mix(
     in srgb,
-    var(--hero-accent) 27%,
+    var(--hero-accent) 38%,
     var(--md-sys-color-surface-container)
   );
 }
 
-/* Тон 3 («Солнышко»): Выразительный тон акцента (39% акцента + 61% фона карточки) */
-.m3-shape--tone-3 {
+/* 3. Яркий выразительный акцентный тон (12-волновая Sunny в центре) */
+.m3-shape--tone-vivid {
   fill: color-mix(
     in srgb,
-    var(--hero-accent) 39%,
+    var(--hero-accent) 68%,
     var(--md-sys-color-surface-container)
   );
 }
 
-/* Тон 4: Самый насыщенный акцентный сквиркл (52% акцента + 48% фона карточки) */
-.m3-shape--tone-4 {
+/* 4. Светлый мягкий пастельный оттенок акцента (малый сквиркл справа) */
+.m3-shape--tone-soft-light {
   fill: color-mix(
     in srgb,
-    var(--hero-accent) 52%,
+    color-mix(in srgb, var(--hero-accent) 76%, #ffffff 24%) 52%,
     var(--md-sys-color-surface-container)
   );
+}
+
+/* Спокойное, медленное синхронное движение всех 4 фигур вокруг своих центров */
+.m3-shape-group {
+  will-change: transform;
+}
+
+.m3-shape-group--1 {
+  transform-origin: 525px 86px;
+  animation: m3-calm-orbit-1 42s linear infinite;
+}
+
+.m3-shape-group--2 {
+  transform-origin: 490px 352px;
+  animation: m3-calm-orbit-2 36s linear infinite;
+}
+
+.m3-shape-group--3 {
+  transform-origin: 425px 206px;
+  animation: m3-calm-orbit-3 28s ease-in-out infinite alternate;
+}
+
+.m3-shape-group--4 {
+  transform-origin: 556px 224px;
+  animation: m3-calm-orbit-4 32s ease-in-out infinite alternate;
+}
+
+@keyframes m3-calm-orbit-1 {
+  0%   { transform: translate3d(0px, 0px, 0) rotate(0deg); }
+  50%  { transform: translate3d(-14px, 10px, 0) rotate(180deg); }
+  100% { transform: translate3d(0px, 0px, 0) rotate(360deg); }
+}
+
+@keyframes m3-calm-orbit-2 {
+  0%   { transform: translate3d(0px, 0px, 0) rotate(0deg); }
+  50%  { transform: translate3d(12px, -12px, 0) rotate(-180deg); }
+  100% { transform: translate3d(0px, 0px, 0) rotate(-360deg); }
+}
+
+@keyframes m3-calm-orbit-3 {
+  0%   { transform: translate3d(-10px, -8px, 0) rotate(-25deg); }
+  50%  { transform: translate3d(8px, 12px, 0) rotate(20deg); }
+  100% { transform: translate3d(-6px, 16px, 0) rotate(65deg); }
+}
+
+@keyframes m3-calm-orbit-4 {
+  0%   { transform: translate3d(0px, -14px, 0) rotate(0deg); }
+  50%  { transform: translate3d(-12px, 6px, 0) rotate(-45deg); }
+  100% { transform: translate3d(4px, 14px, 0) rotate(-90deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m3-shape-group {
+    animation: none !important;
+  }
 }
 
 .m3-hero-content {
@@ -1146,12 +1191,15 @@ onBeforeUnmount(() => {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   3. ПАПКИ И ФАЙЛЫ — РОВНОЕ НАВЕДЕНИЕ (M3 STATE LAYER БЕЗ ОБРЕЗАНИЯ И РАМОК)
+   3. ПАПКИ И ФАЙЛЫ — ЧИСТОЕ СКРУГЛЕНИЕ И ОТСУТСТВИЕ ЧЁРНЫХ УГЛОВ ПРИ DRAG
    ═══════════════════════════════════════════════════════════════════════════ */
 .m3-folder-card,
 .m3-file-card {
   border: none !important;
+  border-radius: 24px !important;
+  overflow: hidden;
   transform: none !important;
+  background-clip: padding-box;
   transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 

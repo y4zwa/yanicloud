@@ -25,6 +25,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         username: r.username,
         isAdmin: r.is_admin === 1,
         quotaBytes: r.quota_bytes,
+        storagePath: r.storage_path,
         used: r.used,
         createdAt: r.created_at,
       })),

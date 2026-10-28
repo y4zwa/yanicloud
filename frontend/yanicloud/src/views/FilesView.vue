@@ -16,44 +16,76 @@
     ></v-progress-linear>
 
     <!-- ХИРО БЛОК (только корень) -->
-    <div v-if="isRoot" class="m3-hero-section mb-12">
-      <div class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center">
-        <div class="m3-hero-blob m3-hero-blob--1"></div>
-        <div class="m3-hero-blob m3-hero-blob--2"></div>
-        <div class="m3-hero-blob m3-hero-blob--3"></div>
-        <h1 class="text-h3 font-weight-medium mb-4 text-on-surface hero-title" style="line-height: 1.2;">
-          {{ greeting }}, <br /><span class="text-primary">{{ currentUser?.username || 'друг' }}</span>
-        </h1>
-        <p class="text-title-medium text-on-surface-variant mb-10" style="line-height: 1.6;">
-          Храните, делитесь и работайте из любой точки мира. Безопасно и быстро.
-        </p>
-        <div class="d-flex align-center gap-4 mt-auto">
-          <v-btn
-            rounded="pill"
-            size="x-large"
-            color="primary-container"
-            elevation="0"
-            class="m3-btn-filled px-6 flex-grow-1"
-            height="64"
-            @click="pickFiles"
-          >
-            <v-icon start size="28">mdi-cloud-upload</v-icon>
-            <span class="text-title-medium font-weight-medium text-on-primary-container text-none">Загрузить</span>
-          </v-btn>
-          <v-btn
-            rounded="pill"
-            size="x-large"
-            variant="outlined"
-            color="outline"
-            class="m3-btn-outlined px-6 flex-grow-1"
-            height="64"
-            @click="createDialog = true"
-          >
-            <span class="text-title-medium font-weight-medium text-primary text-none">Создать папку</span>
-            <v-icon end size="28" color="primary">mdi-folder-plus</v-icon>
-          </v-btn>
+    <div v-if="isRoot" class="m3-hero-section mb-8">
+      <div
+        ref="heroCardRef"
+        class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center"
+        @mousemove="onHeroMouseMove"
+        @mouseleave="onHeroMouseLeave"
+      >
+        <!-- СЛОЙ 1: Живые аврора-сферы (CSS color-mix от акцентного цвета) -->
+        <div class="m3-hero-bg-layer" aria-hidden="true">
+          <div class="m3-hero-blob m3-hero-blob--1"></div>
+          <div class="m3-hero-blob m3-hero-blob--2"></div>
+          <div class="m3-hero-blob m3-hero-blob--3"></div>
+          <div class="m3-hero-blob m3-hero-blob--4"></div>
+
+          <!-- Точечная перспективная матрица -->
+          <div class="m3-hero-dot-grid"></div>
+
+          <!-- Декоративные орбитальные кольца -->
+          <div class="m3-hero-orbits">
+            <div class="m3-hero-orbit m3-hero-orbit--1"></div>
+            <div class="m3-hero-orbit m3-hero-orbit--2"></div>
+            <div class="m3-hero-orbit m3-hero-orbit--3"></div>
+          </div>
+        </div>
+
+        <!-- СЛОЙ 2: Интерактивный Canvas (шёлковые волны + частицы + реакция на мышь) -->
+        <canvas ref="heroCanvasRef" class="m3-hero-canvas" aria-hidden="true"></canvas>
+
+        <!-- СЛОЙ 3: Мягкая виньетка и внутренний стеклянный блик -->
+        <div class="m3-hero-vignette" aria-hidden="true"></div>
+        <div class="m3-hero-border-glow" aria-hidden="true"></div>
+
+        <!-- КОНТЕНТ ХИРО КАРТОЧКИ -->
+        <div class="m3-hero-content d-flex flex-column flex-grow-1 justify-center">
+          <h1 class="text-h3 font-weight-medium mb-4 text-on-surface hero-title" style="line-height: 1.2;">
+            {{ greeting }}, <br />
+            <span class="text-primary hero-username">{{ currentUser?.username || 'друг' }}</span>
+          </h1>
+          <p class="text-title-medium text-on-surface-variant mb-10 hero-subtitle" style="line-height: 1.6;">
+            Храните, делитесь и работайте из любой точки мира. Безопасно и быстро.
+          </p>
+          <div class="d-flex align-center gap-4 mt-auto">
+            <v-btn
+              rounded="pill"
+              size="x-large"
+              color="primary-container"
+              elevation="0"
+              class="m3-btn-filled hero-btn-primary px-6 flex-grow-1"
+              height="64"
+              @click="pickFiles"
+            >
+              <v-icon start size="28">mdi-cloud-upload</v-icon>
+              <span class="text-title-medium font-weight-medium text-on-primary-container text-none">Загрузить</span>
+            </v-btn>
+            <v-btn
+              rounded="pill"
+              size="x-large"
+              variant="outlined"
+              color="outline"
+              class="m3-btn-outlined hero-btn-secondary px-6 flex-grow-1"
+              height="64"
+              @click="createDialog = true"
+            >
+              <span class="text-title-medium font-weight-medium text-primary text-none">Создать папку</span>
+              <v-icon end size="28" color="primary">mdi-folder-plus</v-icon>
+            </v-btn>
+          </div>
         </div>
       </div>
+
       <div
         class="m3-hero-image-card"
         v-ripple
@@ -66,46 +98,60 @@
       </div>
     </div>
 
-    <!-- ВИДЖЕТЫ (только корень) -->
-    <div v-if="isRoot" class="m3-widgets-row d-flex gap-6 mb-12">
-      <!-- Хранилище: информационный виджет, считаем по диску, где реально лежат файлы. Без нажатий. -->
-      <div class="m3-card m3-widget-card m3-widget-card--static d-flex align-center px-6 py-4 flex-grow-1">
-        <div class="m3-progress-wrapper mr-6">
+    <!-- КОМПАКТНЫЕ ВИДЖЕТЫ (только корень) -->
+    <div v-if="isRoot" class="m3-widgets-row d-flex gap-4 mb-10">
+      <!-- Хранилище: компактный информационный виджет -->
+      <div class="m3-card m3-widget-card m3-widget-card--compact m3-widget-card--static d-flex align-center flex-grow-1">
+        <div class="m3-progress-wrapper mr-3">
           <v-progress-circular
             :model-value="storagePercent"
             color="primary"
-            size="64"
-            width="7"
-            class="font-weight-medium text-body-2"
+            size="44"
+            width="4.5"
+            class="widget-progress-text font-weight-bold"
           >
             {{ storagePercentLabel }}
           </v-progress-circular>
         </div>
         <div class="min-width-0 flex-grow-1">
-          <div class="text-body-2 text-on-surface-variant mb-1">Занято хранилища</div>
-          <div class="text-title-large font-weight-medium text-on-surface text-truncate">
+          <div class="d-flex align-baseline justify-space-between gap-2">
+            <span class="widget-eyebrow text-on-surface-variant">Занято хранилища</span>
+          </div>
+          <div class="widget-main-value text-on-surface text-truncate">
             {{ storageLabel }}
           </div>
-          <div class="d-flex align-center mt-2" style="gap: 6px">
-            <v-icon icon="mdi-harddisk" size="16" color="on-surface-variant"></v-icon>
-            <span class="text-body-2 text-on-surface-variant">
-              Свободно на диске: {{ formatBytes(storage.diskFree) }} из {{ formatBytes(storage.diskTotal) }}
-            </span>
+          <div class="widget-meta-row d-flex align-center flex-wrap text-on-surface-variant mt-0.5">
+            <v-icon icon="mdi-harddisk" size="13" color="on-surface-variant" class="mr-1"></v-icon>
+            <span>Свободно: {{ formatBytes(storage.diskFree) }} из {{ formatBytes(storage.diskTotal) }}</span>
+            <template v-if="storageDir">
+              <span class="widget-meta-dot mx-1.5">•</span>
+              <span class="storage-dir" :title="storageDir">{{ storageDir }}</span>
+            </template>
           </div>
-          <div v-if="storageDir" class="storage-dir text-body-2 text-on-surface-variant mt-1">{{ storageDir }}</div>
         </div>
       </div>
-      <!-- Избранное: кликабельное -->
-      <div class="m3-card m3-widget-card d-flex align-center px-6 py-4 flex-grow-1" v-ripple @click="$emit('goto-favorites')">
-        <div class="m3-icon-avatar primary-container m3-widget-avatar mr-6">
-          <v-icon icon="mdi-star" color="on-primary-container" size="30"></v-icon>
+
+      <!-- Избранное: компактная кликабельная плитка -->
+      <div
+        class="m3-card m3-widget-card m3-widget-card--compact m3-widget-card--interactive d-flex align-center flex-grow-1"
+        v-ripple
+        @click="$emit('goto-favorites')"
+      >
+        <div class="m3-icon-avatar primary-container m3-widget-avatar mr-3">
+          <v-icon icon="mdi-star" color="on-primary-container" size="21"></v-icon>
         </div>
         <div class="min-width-0">
-          <div class="text-title-large font-weight-medium text-on-surface mb-1">Избранное</div>
-          <div class="text-body-2 text-on-surface-variant">{{ favoritesCount }} элементов</div>
+          <div class="widget-main-value text-on-surface">Избранное</div>
+          <div class="widget-sub-value text-on-surface-variant">{{ favoritesCount }} элементов</div>
         </div>
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-chevron-right" variant="text" color="on-surface-variant"></v-btn>
+        <v-btn
+          icon="mdi-chevron-right"
+          variant="text"
+          density="comfortable"
+          size="small"
+          color="on-surface-variant"
+        ></v-btn>
       </div>
     </div>
 
@@ -374,7 +420,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { pendingFolder } from '@/store/nav'
 import { openPreview } from '@/store/preview'
 import { playTrack } from '@/store/player'
@@ -467,6 +513,524 @@ const storageLabel = computed(() => {
   if (storage.value.quota > 0) return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.quota)}`
   return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.availableTotal)}`
 })
+
+/* ──────────────────────────────────────────────────────────────
+   ЖИВОЙ CANVAS-ФОН ДЛЯ HERO-КАРТОЧКИ (С АДАПТАЦИЕЙ ПОД АКЦЕНТ)
+   ────────────────────────────────────────────────────────────── */
+type RGB = [number, number, number]
+
+interface HeroParticle {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  radius: number
+  depth: number
+  phase: number
+  speed: number
+  colorMix: number // 0..1 между primary и tertiary
+}
+
+const heroCardRef = ref<HTMLElement | null>(null)
+const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
+
+let rafId: number | null = null
+let resizeObserver: ResizeObserver | null = null
+let themeObserver: MutationObserver | null = null
+let colorProbeCtx: CanvasRenderingContext2D | null = null
+
+const mouseState = {
+  targetX: 0.72,
+  targetY: 0.38,
+  currentX: 0.72,
+  currentY: 0.38,
+  active: false,
+  intensity: 0,
+}
+
+// Текущие и целевые цвета для плавного перехода при смене акцента
+const palette = {
+  primary: [139, 0, 3] as RGB,
+  tertiary: [180, 60, 80] as RGB,
+  secondary: [120, 70, 75] as RGB,
+  targetPrimary: [139, 0, 3] as RGB,
+  targetTertiary: [180, 60, 80] as RGB,
+  targetSecondary: [120, 70, 75] as RGB,
+}
+
+let particles: HeroParticle[] = []
+let canvasW = 0
+let canvasH = 0
+
+function parseCssColorToRgb(raw: string, fallback: RGB): RGB {
+  const val = raw.trim()
+  if (!val) return fallback
+
+  // Если переменная хранит "R, G, B" (формат Vuetify --v-theme-primary)
+  if (/^\d+\s*,\s*\d+\s*,\s*\d+$/.test(val)) {
+    const parts = val.split(',').map((n) => parseInt(n.trim(), 10))
+    return [parts[0] ?? fallback[0], parts[1] ?? fallback[1], parts[2] ?? fallback[2]]
+  }
+
+  // Hex #RRGGBB или #RGB
+  if (val.startsWith('#')) {
+    let hex = val.slice(1)
+    if (hex.length === 3) {
+      hex = hex.split('').map((c) => c + c).join('')
+    }
+    if (hex.length >= 6) {
+      const num = parseInt(hex.slice(0, 6), 16)
+      if (!Number.isNaN(num)) {
+        return [(num >> 16) & 255, (num >> 8) & 255, num & 255]
+      }
+    }
+  }
+
+  // rgb() / rgba()
+  const rgbMatch = val.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i)
+  if (rgbMatch) {
+    return [
+      parseInt(rgbMatch[1], 10),
+      parseInt(rgbMatch[2], 10),
+      parseInt(rgbMatch[3], 10),
+    ]
+  }
+
+  // Универсальный фолбэк через 1x1 canvas для любых CSS-цветов (hsl, oklch и т.д.)
+  try {
+    if (!colorProbeCtx) {
+      const c = document.createElement('canvas')
+      c.width = 1
+      c.height = 1
+      colorProbeCtx = c.getContext('2d', { willReadFrequently: true })
+    }
+    if (colorProbeCtx) {
+      colorProbeCtx.clearRect(0, 0, 1, 1)
+      colorProbeCtx.fillStyle = val
+      colorProbeCtx.fillRect(0, 0, 1, 1)
+      const data = colorProbeCtx.getImageData(0, 0, 1, 1).data
+      return [data[0], data[1], data[2]]
+    }
+  } catch {
+    // ignore
+  }
+
+  return fallback
+}
+
+function shiftHueAndBrighten(rgb: RGB, shiftDeg: number, boost = 1.15): RGB {
+  // Лёгкое смещение оттенка, если tertiary/secondary совпадают с primary
+  const [r, g, b] = rgb.map((v) => v / 255)
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0)
+        break
+      case g:
+        h = (b - r) / d + 2
+        break
+      case b:
+        h = (r - g) / d + 4
+        break
+    }
+    h /= 6
+  }
+
+  h = (h + shiftDeg / 360 + 1) % 1
+  const newL = Math.min(0.82, Math.max(0.28, l * boost))
+  const newS = Math.min(1, Math.max(0.45, s * 1.1))
+
+  const hue2rgb = (p: number, q: number, t: number) => {
+    let tt = t
+    if (tt < 0) tt += 1
+    if (tt > 1) tt -= 1
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt
+    if (tt < 1 / 2) return q
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6
+    return p
+  }
+
+  const q = newL < 0.5 ? newL * (1 + newS) : newL + newS - newL * newS
+  const p = 2 * newL - q
+  return [
+    Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+    Math.round(hue2rgb(p, q, h) * 255),
+    Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+  ]
+}
+
+function sampleAccentColors(): void {
+  const el = heroCardRef.value || document.documentElement
+  const styles = getComputedStyle(el)
+  const rootStyles = getComputedStyle(document.documentElement)
+
+  const readVar = (name: string) =>
+    styles.getPropertyValue(name).trim() || rootStyles.getPropertyValue(name).trim()
+
+  const rawPrimary =
+    readVar('--md-sys-color-primary') ||
+    readVar('--v-theme-primary') ||
+    '#8B0003'
+
+  const primaryRgb = parseCssColorToRgb(rawPrimary, [139, 0, 3])
+
+  const rawTertiary =
+    readVar('--md-sys-color-tertiary') ||
+    readVar('--v-theme-secondary')
+  const tertiaryRgb = rawTertiary
+    ? parseCssColorToRgb(rawTertiary, shiftHueAndBrighten(primaryRgb, 28, 1.25))
+    : shiftHueAndBrighten(primaryRgb, 28, 1.25)
+
+  const rawSecondary = readVar('--md-sys-color-secondary')
+  const secondaryRgb = rawSecondary
+    ? parseCssColorToRgb(rawSecondary, shiftHueAndBrighten(primaryRgb, -22, 1.1))
+    : shiftHueAndBrighten(primaryRgb, -22, 1.1)
+
+  palette.targetPrimary = primaryRgb
+  palette.targetTertiary = tertiaryRgb
+  palette.targetSecondary = secondaryRgb
+}
+
+function lerpColor(current: RGB, target: RGB, factor: number): void {
+  current[0] += (target[0] - current[0]) * factor
+  current[1] += (target[1] - current[1]) * factor
+  current[2] += (target[2] - current[2]) * factor
+}
+
+function mixRgb(a: RGB, b: RGB, t: number): RGB {
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * t),
+    Math.round(a[1] + (b[1] - a[1]) * t),
+    Math.round(a[2] + (b[2] - a[2]) * t),
+  ]
+}
+
+function rgbaStr(rgb: RGB, alpha: number): string {
+  return `rgba(${Math.round(rgb[0])}, ${Math.round(rgb[1])}, ${Math.round(rgb[2])}, ${alpha})`
+}
+
+function createParticles(width: number, height: number): HeroParticle[] {
+  const count = 38
+  const list: HeroParticle[] = []
+  for (let i = 0; i < count; i++) {
+    const depth = 0.3 + Math.random() * 0.7
+    list.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.35 * depth,
+      vy: -(0.12 + Math.random() * 0.32) * depth,
+      radius: (1.1 + Math.random() * 2.6) * depth,
+      depth,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.012 + Math.random() * 0.025,
+      colorMix: Math.random(),
+    })
+  }
+  return list
+}
+
+function resizeHeroCanvas(): void {
+  const card = heroCardRef.value
+  const canvas = heroCanvasRef.value
+  if (!card || !canvas) return
+
+  const rect = card.getBoundingClientRect()
+  const dpr = Math.min(window.devicePixelRatio || 1, 2)
+  canvasW = Math.max(1, Math.floor(rect.width))
+  canvasH = Math.max(1, Math.floor(rect.height))
+
+  canvas.width = Math.floor(canvasW * dpr)
+  canvas.height = Math.floor(canvasH * dpr)
+
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  }
+
+  if (!particles.length) {
+    particles = createParticles(canvasW, canvasH)
+  }
+}
+
+function onHeroMouseMove(e: MouseEvent): void {
+  const card = heroCardRef.value
+  if (!card) return
+  const rect = card.getBoundingClientRect()
+  if (!rect.width || !rect.height) return
+  mouseState.targetX = (e.clientX - rect.left) / rect.width
+  mouseState.targetY = (e.clientY - rect.top) / rect.height
+  mouseState.active = true
+}
+
+function onHeroMouseLeave(): void {
+  mouseState.active = false
+  mouseState.targetX = 0.72
+  mouseState.targetY = 0.38
+}
+
+function startHeroAnimation(): void {
+  stopHeroAnimation()
+  if (!isRoot.value) return
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+  sampleAccentColors()
+  palette.primary = [...palette.targetPrimary] as RGB
+  palette.tertiary = [...palette.targetTertiary] as RGB
+  palette.secondary = [...palette.targetSecondary] as RGB
+
+  resizeHeroCanvas()
+
+  let frameCounter = 0
+
+  const render = (time: number) => {
+    const canvas = heroCanvasRef.value
+    if (!canvas || !isRoot.value) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx || !canvasW || !canvasH) {
+      rafId = requestAnimationFrame(render)
+      return
+    }
+
+    frameCounter++
+    // Периодически проверяем CSS-переменные на случай динамической смены темы/акцента
+    if (frameCounter % 30 === 0) {
+      sampleAccentColors()
+    }
+
+    // Плавная интерполяция цветов
+    lerpColor(palette.primary, palette.targetPrimary, 0.06)
+    lerpColor(palette.tertiary, palette.targetTertiary, 0.06)
+    lerpColor(palette.secondary, palette.targetSecondary, 0.06)
+
+    // Плавное следование курсора
+    mouseState.currentX += (mouseState.targetX - mouseState.currentX) * 0.05
+    mouseState.currentY += (mouseState.targetY - mouseState.currentY) * 0.05
+    const targetIntensity = mouseState.active ? 1 : 0
+    mouseState.intensity += (targetIntensity - mouseState.intensity) * 0.06
+
+    const t = time * 0.001
+    ctx.clearRect(0, 0, canvasW, canvasH)
+
+    // 1. Интерактивное световое гало за курсором (или в правой части карточки по умолчанию)
+    const auraX = mouseState.currentX * canvasW
+    const auraY = mouseState.currentY * canvasH
+    const auraRadius = Math.max(canvasW, canvasH) * (0.48 + mouseState.intensity * 0.12)
+    const auraGrad = ctx.createRadialGradient(auraX, auraY, 0, auraX, auraY, auraRadius)
+    auraGrad.addColorStop(0, rgbaStr(palette.primary, 0.22 + mouseState.intensity * 0.1))
+    auraGrad.addColorStop(0.45, rgbaStr(palette.tertiary, 0.09 + mouseState.intensity * 0.05))
+    auraGrad.addColorStop(1, rgbaStr(palette.primary, 0))
+    ctx.fillStyle = auraGrad
+    ctx.fillRect(0, 0, canvasW, canvasH)
+
+    // 2. Шёлковые гармонические волны (Silk Aurora Ribbons)
+    const ribbons = [
+      {
+        baseY: canvasH * 0.62,
+        amp1: 26,
+        amp2: 14,
+        freq1: 0.0055,
+        freq2: 0.011,
+        speed1: 0.75,
+        speed2: -0.48,
+        colorA: palette.primary,
+        colorB: palette.tertiary,
+        fillAlpha: 0.16,
+        strokeAlpha: 0.42,
+        parallax: 24,
+      },
+      {
+        baseY: canvasH * 0.72,
+        amp1: 22,
+        amp2: 18,
+        freq1: 0.007,
+        freq2: 0.0045,
+        speed1: -0.62,
+        speed2: 0.85,
+        colorA: palette.tertiary,
+        colorB: palette.secondary,
+        fillAlpha: 0.13,
+        strokeAlpha: 0.32,
+        parallax: -18,
+      },
+      {
+        baseY: canvasH * 0.48,
+        amp1: 30,
+        amp2: 12,
+        freq1: 0.0042,
+        freq2: 0.0085,
+        speed1: 0.52,
+        speed2: 0.35,
+        colorA: palette.secondary,
+        colorB: palette.primary,
+        fillAlpha: 0.1,
+        strokeAlpha: 0.26,
+        parallax: 14,
+      },
+      {
+        baseY: canvasH * 0.82,
+        amp1: 16,
+        amp2: 10,
+        freq1: 0.0085,
+        freq2: 0.014,
+        speed1: 0.95,
+        speed2: -0.7,
+        colorA: palette.primary,
+        colorB: palette.tertiary,
+        fillAlpha: 0.18,
+        strokeAlpha: 0.48,
+        parallax: 30,
+      },
+    ]
+
+    const mouseOffsetY = (mouseState.currentY - 0.5) * 2
+    const mouseOffsetX = (mouseState.currentX - 0.5) * 2
+
+    for (const r of ribbons) {
+      ctx.beginPath()
+      const step = 12
+      let firstY = r.baseY
+
+      for (let x = 0; x <= canvasW + step; x += step) {
+        const nx = x + mouseOffsetX * r.parallax
+        // Локальное притяжение волны к курсору
+        const distToMouseX = (x - auraX) / (canvasW * 0.35)
+        const mousePull = Math.exp(-distToMouseX * distToMouseX) * mouseOffsetY * r.parallax * mouseState.intensity
+
+        const y =
+          r.baseY +
+          Math.sin(nx * r.freq1 + t * r.speed1) * r.amp1 +
+          Math.cos(nx * r.freq2 + t * r.speed2) * r.amp2 +
+          mousePull
+
+        if (x === 0) {
+          firstY = y
+          ctx.moveTo(x, y)
+        } else {
+          ctx.lineTo(x, y)
+        }
+      }
+
+      // Свечение вдоль гребня волны
+      const strokeGrad = ctx.createLinearGradient(0, 0, canvasW, 0)
+      strokeGrad.addColorStop(0, rgbaStr(r.colorA, 0.04))
+      strokeGrad.addColorStop(0.35, rgbaStr(r.colorA, r.strokeAlpha))
+      strokeGrad.addColorStop(0.75, rgbaStr(r.colorB, r.strokeAlpha * 1.15))
+      strokeGrad.addColorStop(1, rgbaStr(r.colorB, 0.08))
+
+      ctx.strokeStyle = strokeGrad
+      ctx.lineWidth = 1.6
+      ctx.stroke()
+
+      // Заливка шёлкового шлейфа вниз
+      ctx.lineTo(canvasW, canvasH + 20)
+      ctx.lineTo(0, canvasH + 20)
+      ctx.lineTo(0, firstY)
+      ctx.closePath()
+
+      const fillGrad = ctx.createLinearGradient(0, r.baseY - 40, 0, canvasH)
+      fillGrad.addColorStop(0, rgbaStr(r.colorA, r.fillAlpha))
+      fillGrad.addColorStop(0.55, rgbaStr(r.colorB, r.fillAlpha * 0.45))
+      fillGrad.addColorStop(1, rgbaStr(r.colorB, 0))
+      ctx.fillStyle = fillGrad
+      ctx.fill()
+    }
+
+    // 3. Биолюминесцентные частицы и созвездия
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i]
+      p.phase += p.speed
+      p.x += p.vx + Math.sin(p.phase * 0.7) * 0.15
+      p.y += p.vy
+
+      // Лёгкое отталкивание/реакция частиц на курсор
+      if (mouseState.intensity > 0.05) {
+        const dx = p.x - auraX
+        const dy = p.y - auraY
+        const distSq = dx * dx + dy * dy
+        const minDist = 130
+        if (distSq < minDist * minDist && distSq > 1) {
+          const dist = Math.sqrt(distSq)
+          const force = (1 - dist / minDist) * 0.55 * mouseState.intensity * p.depth
+          p.x += (dx / dist) * force
+          p.y += (dy / dist) * force
+        }
+      }
+
+      //Бесшовный респаун частиц за границами
+      if (p.y < -12) {
+        p.y = canvasH + 10
+        p.x = Math.random() * canvasW
+      }
+      if (p.x < -12) p.x = canvasW + 10
+      if (p.x > canvasW + 12) p.x = -10
+
+      const pulse = 0.45 + 0.55 * Math.sin(p.phase)
+      const pColor = mixRgb(palette.primary, palette.tertiary, p.colorMix)
+      const alpha = (0.18 + pulse * 0.42) * p.depth
+
+      // Мягкое гало частицы
+      const glowRadius = p.radius * 3.8
+      const pGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowRadius)
+      pGrad.addColorStop(0, rgbaStr(pColor, alpha))
+      pGrad.addColorStop(0.45, rgbaStr(pColor, alpha * 0.35))
+      pGrad.addColorStop(1, rgbaStr(pColor, 0))
+      ctx.fillStyle = pGrad
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, glowRadius, 0, Math.PI * 2)
+      ctx.fill()
+
+      // Яркое ядро частицы
+      ctx.fillStyle = rgbaStr([255, 255, 255], alpha * 0.75)
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, p.radius * 0.55, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    rafId = requestAnimationFrame(render)
+  }
+
+  rafId = requestAnimationFrame(render)
+}
+
+function stopHeroAnimation(): void {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
+}
+
+function setupHeroObservers(): void {
+  if (resizeObserver) resizeObserver.disconnect()
+  if (heroCardRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      resizeHeroCanvas()
+    })
+    resizeObserver.observe(heroCardRef.value)
+  }
+
+  if (themeObserver) themeObserver.disconnect()
+  themeObserver = new MutationObserver(() => {
+    sampleAccentColors()
+  })
+  themeObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['style', 'class', 'data-theme'],
+  })
+  if (document.body) {
+    themeObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['style', 'class'],
+    })
+  }
+}
 
 function notify(text: string, color = 'primary'): void {
   snackText.value = text
@@ -653,9 +1217,31 @@ function handlePendingFolder(): void {
 
 watch(pendingFolder, () => handlePendingFolder())
 
-onMounted(() => {
+watch(isRoot, async (root) => {
+  if (root) {
+    await nextTick()
+    setupHeroObservers()
+    startHeroAnimation()
+  } else {
+    stopHeroAnimation()
+  }
+})
+
+onMounted(async () => {
   if (pendingFolder.value) handlePendingFolder()
   else load()
+
+  await nextTick()
+  if (isRoot.value) {
+    setupHeroObservers()
+    startHeroAnimation()
+  }
+})
+
+onBeforeUnmount(() => {
+  stopHeroAnimation()
+  resizeObserver?.disconnect()
+  themeObserver?.disconnect()
 })
 </script>
 
@@ -667,7 +1253,19 @@ onMounted(() => {
   border: 1px solid var(--md-sys-color-outline-variant);
 }
 
-/* Виджет хранилища — чисто информационный: без курсора-руки и реакции на наведение */
+/* ═══════════════════════════════════════════════════════════════════════════
+   1. КОМПАКТНЫЕ ВИДЖЕТЫ (ХРАНИЛИЩЕ И ИЗБРАННОЕ)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.m3-widget-card--compact {
+  padding: 11px 16px !important;
+  min-height: 68px !important;
+  border-radius: 20px !important;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #444) 45%, transparent);
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1),
+              background-color 0.2s ease,
+              border-color 0.25s ease;
+}
+
 .m3-widget-card--static {
   cursor: default;
 }
@@ -675,126 +1273,399 @@ onMounted(() => {
   background-color: var(--md-sys-color-surface-container) !important;
 }
 
-/* Уменьшенная аватарка в плитке избранного */
-.m3-widget-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  flex-shrink: 0;
+.m3-widget-card--interactive {
+  cursor: pointer;
+}
+.m3-widget-card--interactive:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
 }
 
-/* ─── ЖИВОЙ ФОН ХИРО-КАРТОЧКИ ─────────────────────────────────
-   Три светящихся пятна медленно дрейфуют и «дышат» (масштаб/смещение),
-   поверх периодически проплывает световой блик. Все цвета берутся
-   из акцентных M3-переменных, поэтому смена акцента в настройках
-   мгновенно меняет и подсветку. */
+.m3-widget-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 13px !important;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.widget-progress-text {
+  font-size: 0.68rem !important;
+  letter-spacing: -0.02em;
+}
+
+.widget-eyebrow {
+  font-size: 0.72rem;
+  line-height: 1.15;
+  font-weight: 500;
+  opacity: 0.82;
+}
+
+.widget-main-value {
+  font-size: 0.94rem;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.widget-sub-value {
+  font-size: 0.76rem;
+  line-height: 1.2;
+  opacity: 0.8;
+  margin-top: 1px;
+}
+
+.widget-meta-row {
+  font-size: 0.71rem;
+  line-height: 1.25;
+  opacity: 0.78;
+}
+
+.widget-meta-dot {
+  opacity: 0.5;
+}
+
+.storage-dir {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 7%, transparent);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2. ЖИВОЙ МНОГОСЛОЙНЫЙ ФОН ХИРО-КАРТОЧКИ (ПОДСТРОЙКА ПОД АКЦЕНТНЫЙ ЦВЕТ)
+   ═══════════════════════════════════════════════════════════════════════════ */
 .m3-hero-card {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-}
-/* весь контент карточки — над фоном */
-.m3-hero-card > :not(.m3-hero-blob) {
-  position: relative;
-  z-index: 1;
-}
-.m3-hero-blob {
-  position: absolute;
-  z-index: 0;
-  border-radius: 50%;
-  pointer-events: none;
-  filter: blur(46px);
-  will-change: transform;
-}
-.m3-hero-blob--1 {
-  width: 340px;
-  height: 340px;
-  top: -110px;
-  right: -80px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-primary) 32%, transparent) 0%, transparent 70%);
-  animation: hero-float-a 14s ease-in-out infinite alternate;
-}
-.m3-hero-blob--2 {
-  width: 300px;
-  height: 300px;
-  bottom: -100px;
-  left: -70px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 26%, transparent) 0%, transparent 70%);
-  animation: hero-float-b 19s ease-in-out infinite alternate;
-}
-.m3-hero-blob--3 {
-  width: 280px;
-  height: 280px;
-  top: 42%;
-  left: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-secondary, var(--md-sys-color-primary)) 22%, transparent) 0%, transparent 70%);
-  animation: hero-float-c 24s ease-in-out infinite alternate;
+  background:
+    radial-gradient(
+      130% 110% at 95% 10%,
+      color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      110% 100% at 5% 95%,
+      color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 14%, transparent) 0%,
+      transparent 65%
+    ),
+    var(--md-sys-color-surface-container);
+  transition: box-shadow 0.4s ease;
 }
 
-/* Световой блик, плавно проплывающий по карточке (только transform/opacity — GPU) */
+/* Контент всегда поверх анимационных слоёв */
+.m3-hero-content {
+  position: relative;
+  z-index: 4;
+}
+
+/* Базовый контейнер CSS-анимаций */
+.m3-hero-bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Canvas со световыми шёлковыми волнами и частицами */
+.m3-hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  mix-blend-mode: plus-lighter;
+  opacity: 0.92;
+}
+
+/* Мягкая виньетка для идеальной читаемости текста слева */
+.m3-hero-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      90% 90% at 22% 42%,
+      color-mix(in srgb, var(--md-sys-color-surface-container) 52%, transparent) 0%,
+      transparent 75%
+    );
+}
+
+/* Внутренний стеклянный контур с переливом от акцентного цвета */
+.m3-hero-border-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in srgb, var(--md-sys-color-primary) 38%, rgba(255, 255, 255, 0.14)),
+    inset 0 0 36px 0 color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
+}
+
+/* ─── Органические морфинг-сферы (CSS Aurora Blobs) ─── */
+.m3-hero-blob {
+  position: absolute;
+  pointer-events: none;
+  filter: blur(54px);
+  will-change: transform, border-radius;
+}
+
+.m3-hero-blob--1 {
+  width: 380px;
+  height: 380px;
+  top: -130px;
+  right: -90px;
+  background: radial-gradient(
+    circle at 40% 40%,
+    color-mix(in srgb, var(--md-sys-color-primary) 46%, transparent) 0%,
+    color-mix(in srgb, var(--md-sys-color-primary-container, var(--md-sys-color-primary)) 20%, transparent) 48%,
+    transparent 74%
+  );
+  animation: hero-morph-1 16s ease-in-out infinite alternate;
+}
+
+.m3-hero-blob--2 {
+  width: 340px;
+  height: 340px;
+  bottom: -130px;
+  left: -80px;
+  background: radial-gradient(
+    circle at 60% 50%,
+    color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 36%, transparent) 0%,
+    color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent) 52%,
+    transparent 74%
+  );
+  animation: hero-morph-2 21s ease-in-out infinite alternate;
+}
+
+.m3-hero-blob--3 {
+  width: 300px;
+  height: 300px;
+  top: 28%;
+  left: 44%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--md-sys-color-secondary, var(--md-sys-color-primary)) 30%, transparent) 0%,
+    transparent 70%
+  );
+  animation: hero-morph-3 19s ease-in-out infinite alternate;
+}
+
+.m3-hero-blob--4 {
+  width: 220px;
+  height: 220px;
+  bottom: 8%;
+  right: 14%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--md-sys-color-primary) 34%, white 10%) 0%,
+    transparent 68%
+  );
+  opacity: 0.55;
+  animation: hero-morph-4 13s ease-in-out infinite alternate;
+}
+
+/* ─── Точечная матрица с радиальной маской ─── */
+.m3-hero-dot-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--md-sys-color-primary) 36%, var(--md-sys-color-on-surface) 14%) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  opacity: 0.24;
+  mask-image: radial-gradient(ellipse 80% 75% at 78% 35%, #000 15%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 75% at 78% 35%, #000 15%, transparent 75%);
+  animation: hero-grid-breathe 10s ease-in-out infinite alternate;
+}
+
+/* ─── Декоративные орбитальные кольца в правом верхнем углу ─── */
+.m3-hero-orbits {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 340px;
+  height: 340px;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.m3-hero-orbit {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid transparent;
+}
+
+.m3-hero-orbit--1 {
+  border-top-color: color-mix(in srgb, var(--md-sys-color-primary) 55%, transparent);
+  border-right-color: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+  animation: hero-orbit-spin 26s linear infinite;
+}
+
+.m3-hero-orbit--2 {
+  inset: 38px;
+  border-bottom-color: color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 50%, transparent);
+  border-left-color: color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+  border-style: dashed;
+  animation: hero-orbit-spin-rev 34s linear infinite;
+}
+
+.m3-hero-orbit--3 {
+  inset: 82px;
+  border-top-color: color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  animation: hero-orbit-spin 18s linear infinite;
+}
+
+/* ─── Диагональный световой блик ─── */
 .m3-hero-card::after {
   content: '';
   position: absolute;
-  z-index: 0;
-  top: -20%;
-  bottom: -20%;
-  left: -60%;
-  width: 55%;
+  z-index: 2;
+  top: -25%;
+  bottom: -25%;
+  left: -65%;
+  width: 50%;
   pointer-events: none;
   background: linear-gradient(
     105deg,
     transparent 0%,
-    color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent) 45%,
-    color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 10%, transparent) 60%,
+    color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent) 45%,
+    color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 9%, transparent) 58%,
     transparent 100%
   );
-  transform: translateX(-30%) skewX(-14deg);
+  transform: translateX(-30%) skewX(-16deg);
   opacity: 0;
   mix-blend-mode: screen;
-  animation: hero-sheen 9s ease-in-out infinite;
+  animation: hero-sheen 11s ease-in-out infinite;
 }
 
-@keyframes hero-float-a {
-  0%   { transform: translate(0, 0) scale(1); }
-  50%  { transform: translate(-70px, 50px) scale(1.18); }
-  100% { transform: translate(40px, 90px) scale(0.92); }
+/* ─── Улучшения типографики и кнопок поверх живого фона ─── */
+.hero-title {
+  position: relative;
+  z-index: 1;
+  letter-spacing: -0.015em;
 }
-@keyframes hero-float-b {
-  0%   { transform: translate(0, 0) scale(1); }
-  50%  { transform: translate(80px, -60px) scale(1.12); }
-  100% { transform: translate(-40px, -100px) scale(0.95); }
+
+.hero-username {
+  display: inline-block;
+  text-shadow: 0 0 28px color-mix(in srgb, var(--md-sys-color-primary) 38%, transparent);
 }
-@keyframes hero-float-c {
-  0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
-  50%  { transform: translate(-90px, -45px) scale(1.22) rotate(14deg); }
-  100% { transform: translate(60px, -80px) scale(0.9) rotate(-12deg); }
+
+.hero-subtitle {
+  max-width: 520px;
 }
+
+.hero-btn-primary {
+  box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--md-sys-color-primary) 38%, transparent) !important;
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.25s ease !important;
+}
+.hero-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -6px color-mix(in srgb, var(--md-sys-color-primary) 52%, transparent) !important;
+}
+
+.hero-btn-secondary {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--md-sys-color-surface) 38%, transparent) !important;
+  border-color: color-mix(in srgb, var(--md-sys-color-primary) 42%, var(--md-sys-color-outline)) !important;
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1), background-color 0.25s ease !important;
+}
+.hero-btn-secondary:hover {
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent) !important;
+}
+
+/* ─── Кейфреймы ─── */
+@keyframes hero-morph-1 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    border-radius: 42% 58% 60% 40% / 45% 45% 55% 55%;
+  }
+  50% {
+    transform: translate3d(-65px, 45px, 0) scale(1.16) rotate(18deg);
+    border-radius: 58% 42% 45% 55% / 52% 60% 40% 48%;
+  }
+  100% {
+    transform: translate3d(35px, 85px, 0) scale(0.94) rotate(-12deg);
+    border-radius: 48% 52% 64% 36% / 40% 54% 46% 60%;
+  }
+}
+
+@keyframes hero-morph-2 {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    border-radius: 50% 50% 42% 58% / 55% 45% 55% 45%;
+  }
+  50% {
+    transform: translate3d(75px, -55px, 0) scale(1.14);
+    border-radius: 40% 60% 58% 42% / 44% 56% 44% 56%;
+  }
+  100% {
+    transform: translate3d(-35px, -90px, 0) scale(0.96);
+    border-radius: 62% 38% 46% 54% / 50% 50% 50% 50%;
+  }
+}
+
+@keyframes hero-morph-3 {
+  0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+  50%  { transform: translate3d(-85px, -40px, 0) scale(1.24) rotate(16deg); }
+  100% { transform: translate3d(55px, -70px, 0) scale(0.9) rotate(-14deg); }
+}
+
+@keyframes hero-morph-4 {
+  0%   { transform: translate3d(0, 0, 0) scale(0.95); }
+  50%  { transform: translate3d(-50px, -35px, 0) scale(1.25); }
+  100% { transform: translate3d(25px, 30px, 0) scale(0.9); }
+}
+
+@keyframes hero-grid-breathe {
+  0%   { opacity: 0.16; transform: scale(1); }
+  100% { opacity: 0.32; transform: scale(1.03); }
+}
+
+@keyframes hero-orbit-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes hero-orbit-spin-rev {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+
 @keyframes hero-sheen {
-  0%   { transform: translateX(-30%) skewX(-14deg); opacity: 0; }
-  12%  { opacity: 1; }
-  55%  { transform: translateX(430%) skewX(-14deg); opacity: 1; }
-  62%, 100% { transform: translateX(430%) skewX(-14deg); opacity: 0; }
+  0%        { transform: translateX(-30%) skewX(-16deg); opacity: 0; }
+  10%       { opacity: 1; }
+  50%       { transform: translateX(440%) skewX(-16deg); opacity: 1; }
+  58%, 100% { transform: translateX(440%) skewX(-16deg); opacity: 0; }
 }
 
 /* Уважаем системную настройку «меньше анимации» */
 @media (prefers-reduced-motion: reduce) {
   .m3-hero-blob,
+  .m3-hero-dot-grid,
+  .m3-hero-orbit,
   .m3-hero-card::after {
-    animation: none;
+    animation: none !important;
   }
-}
-
-.hero-title {
-  position: relative;
-  z-index: 1;
-}
-
-/* Строка с диском в виджете хранилища */
-.storage-dir {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0.75;
+  .m3-hero-canvas {
+    display: none;
+  }
 }
 
 /* Лёгкий подъём карточек при наведении (M3 motion) */

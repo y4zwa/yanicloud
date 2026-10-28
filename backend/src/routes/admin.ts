@@ -63,9 +63,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
   app.patch('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const id = Number((req.params as any).id)
-    const row = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
-    if (!row) return fail(reply, 404, 'Пользователь не найден')
     const body = req.body as any
+
     const updates: string[] = []
     const params: any[] = []
 
@@ -94,6 +93,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       params.push(hashPassword(password))
     }
 
+    
     const oldDir = getUserFilesDir(id)
 
     if (updates.length > 0) {
@@ -101,10 +101,10 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     }
 
-    // 2. Получаем новый путь ПОСЛЕ обновления БД
+    
     const newDir = getUserFilesDir(id)
 
-    // 3. Выполняем физический перенос, если пути отличаются
+    
     if (oldDir !== newDir && fs.existsSync(oldDir)) {
       try {
         fs.cpSync(oldDir, newDir, { recursive: true })
@@ -115,7 +115,15 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
-    return { user: { id: updated.id, username: updated.username, isAdmin: updated.is_admin === 1, quotaBytes: updated.quota_bytes, storagePath: updated.storage_path } }
+    return {
+      user: {
+        id: updated.id,
+        username: updated.username,
+        isAdmin: updated.is_admin === 1,
+        quotaBytes: updated.quota_bytes,
+        storagePath: updated.storage_path,
+      },
+    }
   })
 
   app.delete('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {

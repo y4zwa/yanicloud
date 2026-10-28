@@ -400,7 +400,13 @@ function openAddUser(): void {
 
 function openEditUser(user: AdminUser): void {
   editingUser.value = user
-  userForm.value = { username: user.username, password: '', quotaGb: bytesToGb(user.quotaBytes), isAdmin: user.isAdmin, storagePath: (user as any).storagePath || '' }
+  userForm.value = { 
+    username: user.username, 
+    password: '', 
+    quotaGb: bytesToGb(user.quotaBytes), 
+    isAdmin: user.isAdmin,
+    storagePath: (user as any).storagePath || '' 
+  }
   showPw.value = false
   userDialog.value = true
 }

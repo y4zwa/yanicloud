@@ -1,4 +1,4 @@
-import fs from 'node:fs'
+import fs, { promises as fsp } from 'node:fs'
 import { getUserFilesDir } from '../db.js'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
@@ -10,6 +10,67 @@ import { deleteUserFiles } from '../nodes.js'
 import { diskInfo } from '../disk.js'
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
+
+async function getDirSize(dir: string): Promise<number> {
+  let size = 0
+  const stack = [dir]
+  
+  while (stack.length > 0) {
+    const current = stack.pop()!
+    try {
+      const entries = await fsp.readdir(current, { withFileTypes: true })
+      for (const entry of entries) {
+        const fullPath = path.join(current, entry.name)
+        if (entry.isDirectory()) {
+          stack.push(fullPath)
+        } else if (entry.isFile()) {
+          try {
+            const stats = await fsp.stat(fullPath)
+            size += stats.size
+          } catch {
+          }
+        }
+      }
+    } catch {
+    }
+  }
+  return size
+}
+
+async function migrateUserFiles(userId: number, oldDir: string, newDir: string): Promise<void> {
+  if (oldDir === newDir) return
+  
+  if (!fs.existsSync(oldDir)) {
+    return 
+  }
+
+  const size = await getDirSize(oldDir)
+  const targetDisk = diskInfo(path.dirname(newDir))
+  
+  if (targetDisk.free < size * 1.1) {
+    const requiredMB = Math.ceil(size / 1024 / 1024)
+    const freeMB = Math.ceil(targetDisk.free / 1024 / 1024)
+    throw new Error(`Недостаточно места на целевом диске. Требуется ~${requiredMB} МБ, свободно ${freeMB} МБ.`)
+  }
+
+  await fsp.mkdir(newDir, { recursive: true })
+
+  await fsp.cp(oldDir, newDir, {
+    recursive: true,
+    force: true,
+    filter: (src) => {
+      try {
+        if (fs.statSync(src).isDirectory()) return true;
+        const relative = path.relative(oldDir, src)
+        const dest = path.join(newDir, relative)
+        return !fs.existsSync(dest)
+      } catch {
+        return true;
+      }
+    }
+  })
+  await fsp.rm(oldDir, { recursive: true, force: true })
+}
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/admin/users', { preHandler: requireAdmin }, async () => {
@@ -93,7 +154,6 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       params.push(hashPassword(password))
     }
 
-    
     const oldDir = getUserFilesDir(id)
 
     if (updates.length > 0) {
@@ -101,16 +161,14 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     }
 
-    
     const newDir = getUserFilesDir(id)
 
-    
-    if (oldDir !== newDir && fs.existsSync(oldDir)) {
+    if (oldDir !== newDir) {
       try {
-        fs.cpSync(oldDir, newDir, { recursive: true })
-        fs.rmSync(oldDir, { recursive: true, force: true })
-      } catch (err) {
-        console.error(`Ошибка при переносе файлов юзера ${id}:`, err)
+        await migrateUserFiles(id, oldDir, newDir)
+      } catch (err: any) {
+        console.error(`[MIGRATION FAIL] User ${id}:`, err)
+        return fail(reply, 500, `Ошибка при переносе файлов: ${err.message}`)
       }
     }
 
@@ -259,23 +317,15 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       
       if (newDir !== oldDir) {
         try {
-          await fs.promises.mkdir(newDir, { recursive: true })
+          await fsp.mkdir(newDir, { recursive: true })
           if (fs.existsSync(oldDir)) {
-            const files = await fs.promises.readdir(oldDir)
+            const files = await fsp.readdir(oldDir)
             for (const f of files) {
               const from = path.join(oldDir, f)
               const to = path.join(newDir, f)
               if (fs.existsSync(to)) continue
-              try {
-                await fs.promises.rename(from, to)
-              } catch (e: any) {
-                if (e?.code === 'EXDEV') {
-                  await fs.promises.copyFile(from, to)
-                  await fs.promises.unlink(from)
-                } else {
-                  throw e
-                }
-              }
+              await fsp.cp(from, to, { recursive: true, force: true })
+              await fsp.rm(from, { recursive: true, force: true })
             }
           }
         } catch (e: any) {

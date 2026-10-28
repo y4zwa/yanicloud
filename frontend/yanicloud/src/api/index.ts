@@ -13,6 +13,7 @@ export interface AdminUser {
   isAdmin: boolean
   used: number
   createdAt: number
+  storagePath?: string | null
 }
 
 export interface AdminSettings {

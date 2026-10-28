@@ -1,6 +1,6 @@
 <template>
   <div
-    class="m3-container"
+    class="m3-container nunito-scope"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
     @drop="onDrop"
@@ -23,29 +23,29 @@
         @mousemove="onHeroMouseMove"
         @mouseleave="onHeroMouseLeave"
       >
-        <!-- MATERIAL 3 SHAPE LIBRARY VECTOR BACKGROUND (сплошные тональные цвета без обводок и тумана) -->
+        <!-- MATERIAL 3 EXPRESSIVE SHAPES (100% от акцентного цвета --md-sys-color-primary) -->
         <svg
           class="m3-hero-shapes-svg"
           viewBox="0 0 600 420"
           preserveAspectRatio="xMidYMid slice"
           aria-hidden="true"
         >
-          <!-- Фигура 1: Крупный 8-лепестковый M3 Cookie в правом верхнем углу -->
-          <path :d="shapePath1" class="m3-shape m3-shape--surface-tint" />
+          <!-- Слой 1: Большой мягкий 8-лепестковый контур (глубокий фоновый тон акцента) -->
+          <path :d="shapePath1" class="m3-shape m3-shape--tone-1" />
 
-          <!-- Фигура 2: Органический 4-листный клевер M3 снизу справа -->
-          <path :d="shapePath2" class="m3-shape m3-shape--primary-container" />
+          <!-- Слой 2: Плавный 4-листный клевер M3 снизу справа (средний тон акцента) -->
+          <path :d="shapePath2" class="m3-shape m3-shape--tone-2" />
 
-          <!-- Фигура 3: 10-волновая фигура M3 Sunny на пересечении -->
-          <path :d="shapePath3" class="m3-shape m3-shape--accent-container" />
+          <!-- Слой 3: Мягкая 12-волновая фигура M3 Sunny (насыщенный тон акцента, без коричневого!) -->
+          <path :d="shapePath3" class="m3-shape m3-shape--tone-3" />
 
-          <!-- Фигура 4: Малый сквиркл-акцент M3 -->
-          <path :d="shapePath4" class="m3-shape m3-shape--primary-tonal" />
+          <!-- Слой 4: Малый скруглённый сквиркл-акцент (яркий тон акцента) -->
+          <path :d="shapePath4" class="m3-shape m3-shape--tone-4" />
         </svg>
 
         <!-- КОНТЕНТ ХИРО КАРТОЧКИ -->
         <div class="m3-hero-content d-flex flex-column flex-grow-1 justify-center">
-          <h1 class="text-h3 font-weight-medium mb-4 text-on-surface hero-title" style="line-height: 1.18;">
+          <h1 class="text-h3 font-weight-bold mb-4 text-on-surface hero-title" style="line-height: 1.18;">
             {{ greeting }}, <br />
             <span class="text-primary">{{ currentUser?.username || 'друг' }}</span>
           </h1>
@@ -63,7 +63,7 @@
               @click="pickFiles"
             >
               <v-icon start size="26">mdi-cloud-upload</v-icon>
-              <span class="text-title-medium font-weight-medium text-on-primary-container text-none">Загрузить</span>
+              <span class="text-title-medium font-weight-bold text-on-primary-container text-none">Загрузить</span>
             </v-btn>
             <v-btn
               rounded="pill"
@@ -74,23 +74,18 @@
               height="64"
               @click="createDialog = true"
             >
-              <span class="text-title-medium font-weight-medium text-primary text-none">Создать папку</span>
+              <span class="text-title-medium font-weight-bold text-primary text-none">Создать папку</span>
               <v-icon end size="26" color="primary">mdi-folder-plus</v-icon>
             </v-btn>
           </div>
         </div>
       </div>
 
-      <!-- Баннер: полностью статичный, без v-ripple и без кликабельности -->
+      <!-- Баннер: чистая картинка без надписей и без кликабельности -->
       <div
         class="m3-hero-image-card m3-hero-image-card--static"
         :style="bannerUrl ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
-      >
-        <div class="m3-hero-image-overlay d-flex flex-column justify-end pa-10">
-          <span class="text-h4 font-weight-medium text-white mb-2">YaniCloud</span>
-          <span class="text-title-medium text-white opacity-80">Ваше личное облако</span>
-        </div>
-      </div>
+      ></div>
     </div>
 
     <!-- ВИДЖЕТЫ (только корень) -->
@@ -103,19 +98,19 @@
             color="primary"
             size="58"
             width="6"
-            class="font-weight-medium text-body-2"
+            class="font-weight-bold text-body-2"
           >
             {{ storagePercentLabel }}
           </v-progress-circular>
         </div>
         <div class="min-width-0 flex-grow-1">
           <div class="d-flex align-center justify-space-between gap-2 mb-0.5">
-            <span class="text-body-2 text-on-surface-variant">Занято хранилища</span>
+            <span class="text-body-2 font-weight-medium text-on-surface-variant">Занято хранилища</span>
             <span v-if="storageDir" class="storage-dir text-caption text-on-surface-variant" :title="storageDir">
               {{ storageDir }}
             </span>
           </div>
-          <div class="text-h6 font-weight-medium text-on-surface text-truncate" style="line-height: 1.3;">
+          <div class="text-h6 font-weight-bold text-on-surface text-truncate" style="line-height: 1.3;">
             {{ storageLabel }}
           </div>
           <div class="d-flex align-center mt-1" style="gap: 6px">
@@ -137,7 +132,7 @@
           <v-icon icon="mdi-star" color="on-primary-container" size="28"></v-icon>
         </div>
         <div class="min-width-0">
-          <div class="text-h6 font-weight-medium text-on-surface mb-0.5" style="line-height: 1.3;">Избранное</div>
+          <div class="text-h6 font-weight-bold text-on-surface mb-0.5" style="line-height: 1.3;">Избранное</div>
           <div class="text-body-2 text-on-surface-variant">{{ favoritesCount }} элементов</div>
         </div>
         <v-spacer></v-spacer>
@@ -162,7 +157,7 @@
             <v-btn
               variant="text"
               color="on-surface-variant"
-              class="text-none text-title-medium"
+              class="text-none text-title-medium font-weight-semibold"
               :disabled="isLastBreadcrumb(item)"
               @click="goTo(breadcrumbIndex(item))"
             >
@@ -176,7 +171,7 @@
           variant="tonal"
           color="primary"
           rounded="pill"
-          class="text-none font-weight-medium"
+          class="text-none font-weight-bold"
           prepend-icon="mdi-folder-plus"
           @click="createDialog = true"
         >
@@ -186,7 +181,7 @@
           color="primary-container"
           elevation="0"
           rounded="pill"
-          class="text-none font-weight-medium"
+          class="text-none font-weight-bold"
           prepend-icon="mdi-cloud-upload"
           @click="pickFiles"
         >
@@ -201,22 +196,22 @@
     </div>
     <div v-else-if="error" class="m3-card pa-8 text-center">
       <v-icon icon="mdi-alert-circle-outline" color="error" size="48" class="mb-4"></v-icon>
-      <div class="text-h6 text-on-surface mb-2">Не удалось загрузить файлы</div>
+      <div class="text-h6 font-weight-bold text-on-surface mb-2">Не удалось загрузить файлы</div>
       <div class="text-title-medium text-on-surface-variant mb-6">{{ error }}</div>
-      <v-btn variant="tonal" color="primary" rounded="pill" @click="load">Повторить</v-btn>
+      <v-btn variant="tonal" color="primary" rounded="pill" class="text-none font-weight-bold" @click="load">Повторить</v-btn>
     </div>
 
     <template v-else>
       <!-- ПУСТО -->
       <div v-if="!folders.length && !files.length" class="m3-card pa-12 d-flex flex-column align-center justify-center">
         <v-icon icon="mdi-folder-open-outline" color="on-surface-variant" size="80" class="mb-4"></v-icon>
-        <div class="text-h5 text-on-surface mb-2">Здесь пока пусто</div>
+        <div class="text-h5 font-weight-bold text-on-surface mb-2">Здесь пока пусто</div>
         <div class="text-title-medium text-on-surface-variant mb-8">Перетащите файлы или создайте папку</div>
         <div class="d-flex gap-4">
-          <v-btn color="primary-container" elevation="0" rounded="pill" class="text-none font-weight-medium" prepend-icon="mdi-cloud-upload" @click="pickFiles">
+          <v-btn color="primary-container" elevation="0" rounded="pill" class="text-none font-weight-bold" prepend-icon="mdi-cloud-upload" @click="pickFiles">
             <span class="text-on-primary-container">Загрузить</span>
           </v-btn>
-          <v-btn variant="tonal" color="primary" rounded="pill" class="text-none font-weight-medium" prepend-icon="mdi-folder-plus" @click="createDialog = true">
+          <v-btn variant="tonal" color="primary" rounded="pill" class="text-none font-weight-bold" prepend-icon="mdi-folder-plus" @click="createDialog = true">
             Создать папку
           </v-btn>
         </div>
@@ -225,7 +220,7 @@
       <!-- ПАПКИ -->
       <template v-if="folders.length">
         <div class="m3-section-header d-flex align-center mb-6">
-          <h2 class="text-h5 font-weight-medium text-on-surface">Папки</h2>
+          <h2 class="text-h5 font-weight-bold text-on-surface">Папки</h2>
         </div>
         <div class="m3-scroll-container gap-6 mb-12 pb-4">
           <div
@@ -253,7 +248,7 @@
                     @click.stop
                   ></v-btn>
                 </template>
-                <v-list density="comfortable">
+                <v-list density="comfortable" class="nunito-scope">
                   <v-list-item prepend-icon="mdi-folder-open-outline" title="Открыть" @click="openFolder(folder)"></v-list-item>
                   <v-list-item
                     :prepend-icon="folder.isFavorite ? 'mdi-star-off' : 'mdi-star-outline'"
@@ -266,7 +261,7 @@
               </v-menu>
             </div>
             <div class="mt-auto">
-              <div class="text-h6 font-weight-medium text-on-surface text-truncate mb-1">{{ folder.name }}</div>
+              <div class="text-h6 font-weight-bold text-on-surface text-truncate mb-1">{{ folder.name }}</div>
               <div class="text-body-1 text-on-surface-variant">{{ folder.items ?? 0 }} элементов</div>
             </div>
           </div>
@@ -276,7 +271,7 @@
       <!-- ФАЙЛЫ -->
       <template v-if="files.length">
         <div class="m3-section-header d-flex align-center mb-6">
-          <h2 class="text-h5 font-weight-medium text-on-surface">Файлы</h2>
+          <h2 class="text-h5 font-weight-bold text-on-surface">Файлы</h2>
         </div>
         <div class="d-flex flex-wrap gap-6 pb-12">
           <div
@@ -294,7 +289,7 @@
             </div>
             <div class="d-flex align-center justify-space-between mt-auto">
               <div class="overflow-hidden pr-3">
-                <div class="text-title-medium font-weight-medium text-on-surface text-truncate mb-1">{{ file.name }}</div>
+                <div class="text-title-medium font-weight-bold text-on-surface text-truncate mb-1">{{ file.name }}</div>
                 <div class="text-body-2 text-on-surface-variant">{{ formatDate(file.updatedAt) }}</div>
               </div>
               <v-menu>
@@ -310,7 +305,7 @@
                     @click.stop
                   ></v-btn>
                 </template>
-                <v-list density="comfortable">
+                <v-list density="comfortable" class="nunito-scope">
                   <v-list-item
                     :prepend-icon="file.isFavorite ? 'mdi-star-off' : 'mdi-star-outline'"
                     :title="file.isFavorite ? 'Убрать из избранного' : 'В избранное'"
@@ -329,7 +324,7 @@
       <!-- НЕДАВНИЕ ФАЙЛЫ (только корень) -->
       <template v-if="isRoot && recent.length">
         <div class="m3-section-header d-flex align-center justify-space-between mb-6">
-          <h2 class="text-h5 font-weight-medium text-on-surface">Недавние файлы</h2>
+          <h2 class="text-h5 font-weight-bold text-on-surface">Недавние файлы</h2>
         </div>
         <div class="m3-scroll-container gap-6 pb-12">
           <div
@@ -347,7 +342,7 @@
             </div>
             <div class="d-flex align-center justify-space-between mt-auto">
               <div class="overflow-hidden pr-3">
-                <div class="text-title-medium font-weight-medium text-on-surface text-truncate mb-1">{{ file.name }}</div>
+                <div class="text-title-medium font-weight-bold text-on-surface text-truncate mb-1">{{ file.name }}</div>
                 <div class="text-body-2 text-on-surface-variant">{{ formatDate(file.updatedAt) }}</div>
               </div>
               <v-menu>
@@ -363,7 +358,7 @@
                     @click.stop
                   ></v-btn>
                 </template>
-                <v-list density="comfortable">
+                <v-list density="comfortable" class="nunito-scope">
                   <v-list-item prepend-icon="mdi-download" title="Скачать" @click="download(file)"></v-list-item>
                   <v-list-item prepend-icon="mdi-eye-off-outline" title="Скрыть из недавних" @click="hideRecent(file)"></v-list-item>
                 </v-list>
@@ -379,8 +374,8 @@
 
     <!-- ДИАЛОГ: СОЗДАТЬ ПАПКУ -->
     <v-dialog v-model="createDialog" max-width="440">
-      <div class="m3-dialog">
-        <div class="text-h6 font-weight-medium text-on-surface mb-4">Новая папка</div>
+      <div class="m3-dialog nunito-scope">
+        <div class="text-h6 font-weight-bold text-on-surface mb-4">Новая папка</div>
         <v-text-field
           v-model="newFolderName"
           label="Название"
@@ -389,8 +384,8 @@
           @keyup.enter="submitCreateFolder"
         ></v-text-field>
         <div class="d-flex justify-end gap-4 mt-2">
-          <v-btn variant="text" class="text-none" @click="createDialog = false">Отмена</v-btn>
-          <v-btn color="primary-container" elevation="0" rounded="pill" class="text-none font-weight-medium" @click="submitCreateFolder">
+          <v-btn variant="text" class="text-none font-weight-bold" @click="createDialog = false">Отмена</v-btn>
+          <v-btn color="primary-container" elevation="0" rounded="pill" class="text-none font-weight-bold" @click="submitCreateFolder">
             <span class="text-on-primary-container">Создать</span>
           </v-btn>
         </div>
@@ -399,8 +394,8 @@
 
     <!-- ДИАЛОГ: ПЕРЕИМЕНОВАТЬ -->
     <v-dialog v-model="renameDialog" max-width="440">
-      <div class="m3-dialog">
-        <div class="text-h6 font-weight-medium text-on-surface mb-4">Переименовать</div>
+      <div class="m3-dialog nunito-scope">
+        <div class="text-h6 font-weight-bold text-on-surface mb-4">Переименовать</div>
         <v-text-field
           v-model="renameValue"
           label="Название"
@@ -409,8 +404,8 @@
           @keyup.enter="submitRename"
         ></v-text-field>
         <div class="d-flex justify-end gap-4 mt-2">
-          <v-btn variant="text" class="text-none" @click="renameDialog = false">Отмена</v-btn>
-          <v-btn color="primary-container" elevation="0" rounded="pill" class="text-none font-weight-medium" @click="submitRename">
+          <v-btn variant="text" class="text-none font-weight-bold" @click="renameDialog = false">Отмена</v-btn>
+          <v-btn color="primary-container" elevation="0" rounded="pill" class="text-none font-weight-bold" @click="submitRename">
             <span class="text-on-primary-container">Сохранить</span>
           </v-btn>
         </div>
@@ -418,19 +413,19 @@
     </v-dialog>
 
     <!-- УВЕДОМЛЕНИЯ -->
-    <v-snackbar v-model="snackbar" :color="snackColor" timeout="3000" rounded="pill">
+    <v-snackbar v-model="snackbar" :color="snackColor" timeout="3000" rounded="pill" class="nunito-scope">
       {{ snackText }}
     </v-snackbar>
 
     <!-- DRAG AND DROP OVERLAY -->
     <transition name="fade">
-      <div v-if="dragOver" class="m3-drag-overlay d-flex align-center justify-center">
+      <div v-if="dragOver" class="m3-drag-overlay nunito-scope d-flex align-center justify-center">
         <div class="m3-drag-scrim"></div>
         <div class="m3-drag-dialog d-flex flex-column align-center justify-center pa-12 elevation-6">
           <div class="m3-drag-icon-container mb-8">
             <v-icon icon="mdi-cloud-upload" color="primary" size="100"></v-icon>
           </div>
-          <h2 class="text-h3 font-weight-medium text-on-surface mb-4">Отпустите файлы</h2>
+          <h2 class="text-h3 font-weight-bold text-on-surface mb-4">Отпустите файлы</h2>
           <p class="text-h6 text-on-surface-variant text-center" style="line-height: 1.5;">
             Они будут загружены<br />в текущую директорию
           </p>
@@ -515,7 +510,6 @@ const greeting = computed(() => {
   return 'Добрый вечер'
 })
 
-// путь, где реально лежат файлы пользователя
 const storageDir = computed(() => ((storage.value as any).dir as string | undefined) ?? '')
 
 const storagePercent = computed(() => {
@@ -536,10 +530,9 @@ const storageLabel = computed(() => {
 })
 
 /* ──────────────────────────────────────────────────────────────────────────
-   MATERIAL 3 SHAPE LIBRARY — ГЕНЕРАТОР СПЛОШНЫХ ТОНАЛЬНЫХ ФИГУР (SVG)
-   Без градиентного тумана, без прозрачностей и без обводок.
-   Фигуры плавно дышат, вращаются и морфируются между формами M3
-   (Cookie-8, 4-Leaf Clover, Sunny-10 и Squircle).
+   MATERIAL 3 SHAPE LIBRARY — ПЛАВНЫЙ МОРФИНГ И МЯГКОЕ ДЫХАНИЕ ФИГУР
+   Реакция на курсор ослаблена в 4 раза (деликатный отклик), а сами фигуры
+   плавно перетекают, меняют глубину лепестков и масштаб по кривым Лиссажу.
    ────────────────────────────────────────────────────────────────────────── */
 const shapePath1 = ref('')
 const shapePath2 = ref('')
@@ -558,51 +551,68 @@ const pointerSpring = {
 }
 
 /**
- * Строит гладкий замкнутый SVG-путь (кубическая/квадратичная аппроксимация)
- * для фигур из официальной библиотеки Material 3 Shape Library.
+ * Генерирует идеально гладкий замкнутый SVG-путь для биоморфных фигур M3
+ * с поддержкой плавного перетекания лепестков и органической деформации.
  */
-function buildM3ShapeSvgPath(
+function buildM3MorphPath(
   cx: number,
   cy: number,
   baseR: number,
   lobes: number,
   lobeDepth: number,
   rotation: number,
-  secondaryHarmonic = 0,
-  secondaryPhase = 0
+  secondaryLobes: number,
+  secondaryDepth: number,
+  secondaryPhase: number,
+  ellipticity = 0,
+  ellipseAngle = 0
 ): string {
-  const numPts = Math.max(48, lobes * 10)
+  const numPts = 72
   const pts: [number, number][] = []
+
+  const cosE = Math.cos(ellipseAngle)
+  const sinE = Math.sin(ellipseAngle)
 
   for (let i = 0; i < numPts; i++) {
     const a = (i / numPts) * Math.PI * 2
-    const wave1 = Math.cos(a * lobes + rotation) * lobeDepth
-    const wave2 = Math.sin(a * (lobes * 0.5) - secondaryPhase) * secondaryHarmonic
-    const r = baseR * (1 + wave1 + wave2)
-    pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r])
+    // Основная форма M3 (Cookie / Clover / Sunny / Pill)
+    const w1 = Math.cos(a * lobes + rotation) * lobeDepth
+    // Вторичная гармоника (создаёт эффект перетекания формы в реальном времени)
+    const w2 = Math.sin(a * secondaryLobes - secondaryPhase) * secondaryDepth
+    // Мягкая эллиптическая деформация («дыхание» объёма)
+    const w3 = Math.cos(a * 2 - ellipseAngle) * ellipticity
+
+    const r = baseR * (1 + w1 + w2 + w3)
+    const lx = Math.cos(a) * r
+    const ly = Math.sin(a) * r
+
+    pts.push([
+      cx + lx * cosE - ly * sinE * 0.04,
+      cy + ly * cosE + lx * sinE * 0.04,
+    ])
   }
 
   const len = pts.length
   const startMidX = (pts[len - 1][0] + pts[0][0]) * 0.5
   const startMidY = (pts[len - 1][1] + pts[0][1]) * 0.5
 
-  let d = `M ${startMidX.toFixed(1)} ${startMidY.toFixed(1)}`
+  let d = `M ${startMidX.toFixed(2)} ${startMidY.toFixed(2)}`
   for (let i = 0; i < len; i++) {
     const p0 = pts[i]
     const p1 = pts[(i + 1) % len]
     const midX = (p0[0] + p1[0]) * 0.5
     const midY = (p0[1] + p1[1]) * 0.5
-    d += ` Q ${p0[0].toFixed(1)} ${p0[1].toFixed(1)} ${midX.toFixed(1)} ${midY.toFixed(1)}`
+    d += ` Q ${p0[0].toFixed(2)} ${p0[1].toFixed(2)} ${midX.toFixed(2)} ${midY.toFixed(2)}`
   }
   return d + ' Z'
 }
 
 function updateHeroShapes(now: number): void {
-  const t = now * 0.00055
+  const t = now * 0.00075
 
-  // Пружинная физика M3 для мягкого параллакса от мыши
-  const stiffness = 0.045
-  const damping = 0.82
+  // Очень мягкая, вязкая пружина для едва заметного параллакса от курсора
+  const stiffness = 0.022
+  const damping = 0.88
   pointerSpring.vx = (pointerSpring.vx + (pointerSpring.targetX - pointerSpring.x) * stiffness) * damping
   pointerSpring.vy = (pointerSpring.vy + (pointerSpring.targetY - pointerSpring.y) * stiffness) * damping
   pointerSpring.x += pointerSpring.vx
@@ -611,56 +621,75 @@ function updateHeroShapes(now: number): void {
   const px = pointerSpring.x
   const py = pointerSpring.y
 
-  // 1. Крупный 8-лепестковый M3 Cookie в правом верхнем углу
-  const morph1 = 0.075 + Math.sin(t * 1.1) * 0.025
-  shapePath1.value = buildM3ShapeSvgPath(
-    535 + px * 16 + Math.sin(t * 0.7) * 10,
-    78 + py * 14 + Math.cos(t * 0.6) * 10,
-    185,
+  // 1. Большой фоновый 8-лепестковый M3 Cookie в правом верхнем углу
+  // Медленно дышит по радиусу и плавно меняет выраженность лепестков
+  const r1 = 192 + Math.sin(t * 0.85) * 12
+  const depth1 = 0.068 + Math.sin(t * 0.95) * 0.028
+  shapePath1.value = buildM3MorphPath(
+    528 + Math.sin(t * 0.65) * 18 + px * 4.5,
+    82 + Math.cos(t * 0.52) * 16 + py * 4.0,
+    r1,
     8,
-    morph1,
-    t * 0.35,
-    0.018,
-    t * 0.9
-  )
-
-  // 2. 4-листный клевер M3 (4-Leaf Clover) в правом нижнем углу
-  const morph2 = 0.115 + Math.cos(t * 0.95) * 0.03
-  shapePath2.value = buildM3ShapeSvgPath(
-    495 - px * 22 + Math.cos(t * 0.8) * 12,
-    355 - py * 18 + Math.sin(t * 0.75) * 12,
-    148,
+    depth1,
+    t * 0.28,
     4,
-    morph2,
-    -t * 0.42 + 0.6,
-    0.022,
-    t * 1.1
+    0.024 * Math.cos(t * 0.7),
+    t * 0.6,
+    0.025 * Math.sin(t * 0.5),
+    t * 0.3
   )
 
-  // 3. 10-лучевой мягкий M3 Sunny ближе к центру-справа
-  const morph3 = 0.06 + Math.sin(t * 1.4 + 1.5) * 0.02
-  shapePath3.value = buildM3ShapeSvgPath(
-    420 + px * 28 + Math.sin(t * 0.9 + 2) * 11,
-    205 + py * 24 + Math.cos(t * 0.85 + 1) * 11,
-    92,
-    10,
-    morph3,
-    t * 0.5,
-    0.015,
-    -t * 0.8
-  )
-
-  // 4. Мягкий вращающийся M3 Squircle / Clover-pill
-  const morph4 = 0.09 + Math.cos(t * 1.3) * 0.025
-  shapePath4.value = buildM3ShapeSvgPath(
-    555 + px * 12,
-    225 + py * 12 + Math.sin(t * 1.1) * 8,
-    56,
+  // 2. 4-листный клевер M3 (4-Leaf Clover) снизу справа
+  // Плавно морфируется от почти круглого сквиркла к глубокому клеверу и обратно
+  const r2 = 152 + Math.cos(t * 0.78 + 1.2) * 11
+  const depth2 = 0.105 + Math.cos(t * 0.88) * 0.042
+  shapePath2.value = buildM3MorphPath(
+    492 + Math.cos(t * 0.58) * 20 - px * 5.5,
+    350 + Math.sin(t * 0.72) * 16 - py * 5.0,
+    r2,
     4,
-    morph4,
-    t * 0.65 + 0.4,
-    0,
-    0
+    depth2,
+    -t * 0.34 + 0.5,
+    8,
+    0.022 * Math.sin(t * 0.95),
+    -t * 0.75,
+    0.03 * Math.cos(t * 0.62),
+    -t * 0.25
+  )
+
+  // 3. 12-волновая мягкая фигура M3 Sunny ближе к центру-справа
+  // Описывает плавную восьмёрку Лиссажу и мягко пульсирует лучами
+  const r3 = 96 + Math.sin(t * 1.15 + 2.4) * 9
+  const depth3 = 0.055 + Math.sin(t * 1.25 + 0.8) * 0.025
+  shapePath3.value = buildM3MorphPath(
+    422 + Math.sin(t * 0.74 + 1.7) * 22 + px * 7.0,
+    208 + Math.sin(t * 1.48 + 0.6) * 16 + py * 6.0,
+    r3,
+    12,
+    depth3,
+    t * 0.42,
+    6,
+    0.02 * Math.cos(t * 1.1),
+    t * 0.85,
+    0.02 * Math.sin(t * 0.8),
+    t * 0.4
+  )
+
+  // 4. Малый органический M3 Squircle / Pebble справа по центру
+  const r4 = 58 + Math.cos(t * 1.3 + 0.5) * 6
+  const depth4 = 0.085 + Math.sin(t * 1.05) * 0.035
+  shapePath4.value = buildM3MorphPath(
+    556 + Math.cos(t * 0.9 + 0.8) * 14 + px * 3.5,
+    224 + Math.sin(t * 0.82) * 18 + py * 3.5,
+    r4,
+    4,
+    depth4,
+    t * 0.52 + 0.4,
+    3,
+    0.026 * Math.sin(t * 0.9),
+    t * 0.7,
+    0.025,
+    t * 0.5
   )
 
   if (isRoot.value) {
@@ -670,7 +699,6 @@ function updateHeroShapes(now: number): void {
 
 function startShapesLoop(): void {
   stopShapesLoop()
-  // Первичный рендер кадра сразу (даже если включен prefers-reduced-motion)
   updateHeroShapes(performance.now())
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     stopShapesLoop()
@@ -699,7 +727,7 @@ function onHeroMouseLeave(): void {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   НАДЁЖНЫЙ DRAG-AND-DROP ДЛЯ ЗАКРЕПОВ (ФИКС ЗАВИСАНИЯ ПАНЕЛИ ПРИ РЫВКЕ)
+   НАДЁЖНЫЙ DRAG-AND-DROP ДЛЯ ЗАКРЕПОВ (БЕЗ БАГОВ ПРИ РЫВКЕ)
    ────────────────────────────────────────────────────────────────────────── */
 function cleanupPinDragState(): void {
   if (draggingPin.value) {
@@ -713,9 +741,6 @@ function cleanupPinDragState(): void {
 }
 
 function onWindowMouseMoveVerifyDrag(e: MouseEvent): void {
-  // Во время нативного HTML5 drag события mousemove не идут.
-  // Если mousemove пришёл и кнопка мыши уже отпущена (e.buttons === 0),
-  // значит нативный drag прервался рывком — принудительно сбрасываем закреп.
   if (e.buttons === 0 && draggingPin.value) {
     cleanupPinDragState()
   }
@@ -890,7 +915,6 @@ async function upload(files: File[]): Promise<void> {
 }
 
 function onDragOver(e: DragEvent): void {
-  // Если перетаскиваем карточку в закреп — не блокируем и не перехватываем событие контейнером
   if (draggingPin.value) return
   if (e.dataTransfer?.types.includes('Files')) {
     e.preventDefault()
@@ -942,9 +966,44 @@ onBeforeUnmount(() => {
 })
 </script>
 
+<!-- Глобальное подключение Nunito и принудительное применение ко всем Vuetify-классам -->
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap');
+
+:root,
+.v-application {
+  --v-font-family: 'Nunito', sans-serif !important;
+  font-family: 'Nunito', sans-serif !important;
+}
+
+.nunito-scope,
+.nunito-scope *:not(.v-icon):not(.mdi),
+.v-application .text-h1,
+.v-application .text-h2,
+.v-application .text-h3,
+.v-application .text-h4,
+.v-application .text-h5,
+.v-application .text-h6,
+.v-application .text-subtitle-1,
+.v-application .text-subtitle-2,
+.v-application .text-body-1,
+.v-application .text-body-2,
+.v-application .text-button,
+.v-application .text-caption,
+.v-application .text-overline,
+.v-application .text-title-large,
+.v-application .text-title-medium,
+.v-application .text-title-small {
+  font-family: 'Nunito', sans-serif !important;
+}
+</style>
+
 <style scoped>
 /* ═══════════════════════════════════════════════════════════════════════════
-   1. MATERIAL 3 HERO CARD & SOLID TONAL SHAPES (БЕЗ ОБВОДОК И ПОЛУПРОЗРАЧНОСТИ)
+   1. MATERIAL 3 HERO CARD & ACCENT-ADAPTIVE SHAPES (БЕЗ КОРИЧНЕВОГО ОТТЕНКА)
+   Все 4 фигуры берут цвет напрямую от текущего акцентного цвета
+   (--md-sys-color-primary или rgb(var(--v-theme-primary))), смешивая его
+   с фоном карточки (--md-sys-color-surface-container) в разных пропорциях.
    ═══════════════════════════════════════════════════════════════════════════ */
 .m3-hero-card {
   position: relative;
@@ -952,6 +1011,7 @@ onBeforeUnmount(() => {
   isolation: isolate;
   background-color: var(--md-sys-color-surface-container);
   border: none !important;
+  --hero-accent: var(--md-sys-color-primary, rgb(var(--v-theme-primary)));
 }
 
 .m3-hero-shapes-svg {
@@ -963,41 +1023,43 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* Все фигуры используют 100% сплошные (непрозрачные) тональные цвета M3,
-   полученные смешиванием акцентных токенов с фоном карточки surface-container */
 .m3-shape {
   stroke: none;
   transition: fill 0.35s ease;
 }
 
-.m3-shape--surface-tint {
+/* Тон 1: Мягкий глубокий оттенок акцента (16% акцента + 84% фона карточки) */
+.m3-shape--tone-1 {
   fill: color-mix(
     in srgb,
-    var(--md-sys-color-primary-container, var(--md-sys-color-primary)) 34%,
+    var(--hero-accent) 16%,
     var(--md-sys-color-surface-container)
   );
 }
 
-.m3-shape--primary-container {
+/* Тон 2: Средний тональный оттенок акцента (27% акцента + 73% фона карточки) */
+.m3-shape--tone-2 {
   fill: color-mix(
     in srgb,
-    var(--md-sys-color-primary-container, var(--md-sys-color-primary)) 58%,
+    var(--hero-accent) 27%,
     var(--md-sys-color-surface-container)
   );
 }
 
-.m3-shape--accent-container {
+/* Тон 3 («Солнышко»): Выразительный тон акцента (39% акцента + 61% фона карточки) */
+.m3-shape--tone-3 {
   fill: color-mix(
     in srgb,
-    var(--md-sys-color-tertiary-container, var(--md-sys-color-primary-container, var(--md-sys-color-primary))) 46%,
+    var(--hero-accent) 39%,
     var(--md-sys-color-surface-container)
   );
 }
 
-.m3-shape--primary-tonal {
+/* Тон 4: Самый насыщенный акцентный сквиркл (52% акцента + 48% фона карточки) */
+.m3-shape--tone-4 {
   fill: color-mix(
     in srgb,
-    var(--md-sys-color-primary) 26%,
+    var(--hero-accent) 52%,
     var(--md-sys-color-surface-container)
   );
 }
@@ -1015,7 +1077,7 @@ onBeforeUnmount(() => {
 .m3-btn-tonal-surface {
   background-color: color-mix(
     in srgb,
-    var(--md-sys-color-on-surface) 8%,
+    var(--hero-accent) 14%,
     var(--md-sys-color-surface-container)
   ) !important;
   border: none !important;
@@ -1023,12 +1085,12 @@ onBeforeUnmount(() => {
 .m3-btn-tonal-surface:hover {
   background-color: color-mix(
     in srgb,
-    var(--md-sys-color-primary) 14%,
+    var(--hero-accent) 22%,
     var(--md-sys-color-surface-container)
   ) !important;
 }
 
-/* Баннер справа — полностью статичный, некликабельный, без обводки */
+/* Баннер справа — полностью чистый, статичный, без текста и без клика */
 .m3-hero-image-card--static {
   cursor: default !important;
   pointer-events: none;
@@ -1103,7 +1165,6 @@ onBeforeUnmount(() => {
   ) !important;
 }
 
-/* Защита внутренних превьюшек от перехвата нативного drag браузером */
 .m3-thumb-guard {
   user-select: none;
   -webkit-user-drag: none;

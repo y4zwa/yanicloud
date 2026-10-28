@@ -17,162 +17,166 @@
 
     <!-- ХИРО БЛОК (только корень) -->
     <div v-if="isRoot" class="m3-hero-section mb-8">
+      <!-- Левая главная карточка с органическим живым фоном M3 -->
       <div
         ref="heroCardRef"
         class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center"
         @mousemove="onHeroMouseMove"
         @mouseleave="onHeroMouseLeave"
       >
-        <!-- СЛОЙ 1: Живые аврора-сферы (CSS color-mix от акцентного цвета) -->
-        <div class="m3-hero-bg-layer" aria-hidden="true">
-          <div class="m3-hero-blob m3-hero-blob--1"></div>
-          <div class="m3-hero-blob m3-hero-blob--2"></div>
-          <div class="m3-hero-blob m3-hero-blob--3"></div>
-          <div class="m3-hero-blob m3-hero-blob--4"></div>
-
-          <!-- Точечная перспективная матрица -->
-          <div class="m3-hero-dot-grid"></div>
-
-          <!-- Декоративные орбитальные кольца -->
-          <div class="m3-hero-orbits">
-            <div class="m3-hero-orbit m3-hero-orbit--1"></div>
-            <div class="m3-hero-orbit m3-hero-orbit--2"></div>
-            <div class="m3-hero-orbit m3-hero-orbit--3"></div>
-          </div>
+        <!-- СЛОЙ 1: Мягкая тональная подложка Material You -->
+        <div class="m3-hero-ambient" aria-hidden="true">
+          <div class="m3-hero-ambient-glow m3-hero-ambient-glow--1"></div>
+          <div class="m3-hero-ambient-glow m3-hero-ambient-glow--2"></div>
         </div>
 
-        <!-- СЛОЙ 2: Интерактивный Canvas (шёлковые волны + частицы + реакция на мышь) -->
+        <!-- СЛОЙ 2: Органический Canvas (дышащие M3-формы и плавный градиентный меш) -->
         <canvas ref="heroCanvasRef" class="m3-hero-canvas" aria-hidden="true"></canvas>
 
-        <!-- СЛОЙ 3: Мягкая виньетка и внутренний стеклянный блик -->
-        <div class="m3-hero-vignette" aria-hidden="true"></div>
-        <div class="m3-hero-border-glow" aria-hidden="true"></div>
+        <!-- СЛОЙ 3: Мягкая защита контраста текста слева -->
+        <div class="m3-hero-readability-scrim" aria-hidden="true"></div>
 
         <!-- КОНТЕНТ ХИРО КАРТОЧКИ -->
         <div class="m3-hero-content d-flex flex-column flex-grow-1 justify-center">
-          <h1 class="text-h3 font-weight-medium mb-4 text-on-surface hero-title" style="line-height: 1.2;">
+          <div class="m3-hero-chip d-inline-flex align-center align-self-start mb-5">
+            <span class="m3-hero-chip-dot mr-2"></span>
+            <span>Личное облачное пространство</span>
+          </div>
+
+          <h1 class="text-h3 font-weight-medium mb-4 text-on-surface hero-title">
             {{ greeting }}, <br />
             <span class="text-primary hero-username">{{ currentUser?.username || 'друг' }}</span>
           </h1>
-          <p class="text-title-medium text-on-surface-variant mb-10 hero-subtitle" style="line-height: 1.6;">
+
+          <p class="text-title-medium text-on-surface-variant mb-10 hero-subtitle">
             Храните, делитесь и работайте из любой точки мира. Безопасно и быстро.
           </p>
-          <div class="d-flex align-center gap-4 mt-auto">
+
+          <div class="d-flex align-center gap-4 mt-auto hero-actions">
             <v-btn
               rounded="pill"
               size="x-large"
-              color="primary-container"
+              color="primary"
               elevation="0"
-              class="m3-btn-filled hero-btn-primary px-6 flex-grow-1"
-              height="64"
+              class="m3-btn-filled hero-btn-primary px-7 flex-grow-1"
+              height="60"
               @click="pickFiles"
             >
-              <v-icon start size="28">mdi-cloud-upload</v-icon>
-              <span class="text-title-medium font-weight-medium text-on-primary-container text-none">Загрузить</span>
+              <v-icon start size="24" class="mr-2">mdi-cloud-upload-outline</v-icon>
+              <span class="text-title-medium font-weight-medium text-none">Загрузить</span>
             </v-btn>
+
             <v-btn
               rounded="pill"
               size="x-large"
-              variant="outlined"
-              color="outline"
-              class="m3-btn-outlined hero-btn-secondary px-6 flex-grow-1"
-              height="64"
+              variant="tonal"
+              color="primary"
+              elevation="0"
+              class="m3-btn-tonal hero-btn-secondary px-7 flex-grow-1"
+              height="60"
               @click="createDialog = true"
             >
-              <span class="text-title-medium font-weight-medium text-primary text-none">Создать папку</span>
-              <v-icon end size="28" color="primary">mdi-folder-plus</v-icon>
+              <v-icon start size="24" class="mr-2">mdi-folder-plus-outline</v-icon>
+              <span class="text-title-medium font-weight-medium text-none">Создать папку</span>
             </v-btn>
           </div>
         </div>
       </div>
 
+      <!-- Правый баннер: статичный, без возможности нажатия и без ripple -->
       <div
-        class="m3-hero-image-card"
-        v-ripple
+        class="m3-hero-image-card m3-hero-image-card--static"
         :style="bannerUrl ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
       >
-        <div class="m3-hero-image-overlay d-flex flex-column justify-end pa-10">
-          <span class="text-h4 font-weight-medium text-white mb-2">YaniCloud</span>
-          <span class="text-title-medium text-white opacity-80">Ваше личное облако</span>
+        <div class="m3-hero-image-overlay d-flex flex-column justify-end pa-9">
+          <div class="m3-banner-badge d-inline-flex align-center align-self-start mb-3">
+            <v-icon icon="mdi-shield-check-outline" size="16" class="mr-1.5"></v-icon>
+            <span>Приватное хранилище</span>
+          </div>
+          <span class="text-h4 font-weight-medium text-white mb-1" style="letter-spacing: -0.02em;">YaniCloud</span>
+          <span class="text-title-medium text-white" style="opacity: 0.84;">Ваше личное облако</span>
         </div>
       </div>
     </div>
 
-    <!-- КОМПАКТНЫЕ ВИДЖЕТЫ (только корень) -->
-    <div v-if="isRoot" class="m3-widgets-row d-flex gap-4 mb-10">
-      <!-- Хранилище: компактный информационный виджет -->
-      <div class="m3-card m3-widget-card m3-widget-card--compact m3-widget-card--static d-flex align-center flex-grow-1">
-        <div class="m3-progress-wrapper mr-3">
+    <!-- ВИДЖЕТЫ (только корень) — увеличенные, сбалансированные по гайдлайнам M3 -->
+    <div v-if="isRoot" class="m3-widgets-row d-flex gap-6 mb-12">
+      <!-- Хранилище: информационный виджет (некликабельный) -->
+      <div class="m3-card m3-widget-card m3-widget-card--static d-flex align-center flex-grow-1">
+        <div class="m3-progress-container mr-5">
           <v-progress-circular
             :model-value="storagePercent"
             color="primary"
-            size="44"
-            width="4.5"
-            class="widget-progress-text font-weight-bold"
+            size="56"
+            width="6"
+            class="m3-circular-gauge font-weight-bold"
           >
-            {{ storagePercentLabel }}
+            <span class="m3-gauge-label">{{ storagePercentLabel }}</span>
           </v-progress-circular>
         </div>
+
         <div class="min-width-0 flex-grow-1">
-          <div class="d-flex align-baseline justify-space-between gap-2">
-            <span class="widget-eyebrow text-on-surface-variant">Занято хранилища</span>
+          <div class="d-flex align-center justify-space-between mb-1">
+            <span class="m3-widget-label text-on-surface-variant">Занято хранилища</span>
+            <span v-if="storageDir" class="m3-storage-dir-pill" :title="storageDir">
+              {{ storageDir }}
+            </span>
           </div>
-          <div class="widget-main-value text-on-surface text-truncate">
+
+          <div class="m3-widget-title text-on-surface text-truncate mb-1">
             {{ storageLabel }}
           </div>
-          <div class="widget-meta-row d-flex align-center flex-wrap text-on-surface-variant mt-0.5">
-            <v-icon icon="mdi-harddisk" size="13" color="on-surface-variant" class="mr-1"></v-icon>
-            <span>Свободно: {{ formatBytes(storage.diskFree) }} из {{ formatBytes(storage.diskTotal) }}</span>
-            <template v-if="storageDir">
-              <span class="widget-meta-dot mx-1.5">•</span>
-              <span class="storage-dir" :title="storageDir">{{ storageDir }}</span>
-            </template>
+
+          <div class="m3-widget-meta d-flex align-center text-on-surface-variant">
+            <v-icon icon="mdi-harddisk" size="15" color="on-surface-variant" class="mr-1.5 opacity-80"></v-icon>
+            <span class="text-truncate">
+              Свободно на диске: {{ formatBytes(storage.diskFree) }} из {{ formatBytes(storage.diskTotal) }}
+            </span>
           </div>
         </div>
       </div>
 
-      <!-- Избранное: компактная кликабельная плитка -->
+      <!-- Избранное: интерактивный M3-виджет -->
       <div
-        class="m3-card m3-widget-card m3-widget-card--compact m3-widget-card--interactive d-flex align-center flex-grow-1"
+        class="m3-card m3-widget-card m3-widget-card--interactive d-flex align-center flex-grow-1"
         v-ripple
         @click="$emit('goto-favorites')"
       >
-        <div class="m3-icon-avatar primary-container m3-widget-avatar mr-3">
-          <v-icon icon="mdi-star" color="on-primary-container" size="21"></v-icon>
+        <div class="m3-icon-avatar primary-container m3-widget-avatar mr-5">
+          <v-icon icon="mdi-star-rounded" color="on-primary-container" size="28"></v-icon>
         </div>
-        <div class="min-width-0">
-          <div class="widget-main-value text-on-surface">Избранное</div>
-          <div class="widget-sub-value text-on-surface-variant">{{ favoritesCount }} элементов</div>
+
+        <div class="min-width-0 flex-grow-1">
+          <div class="m3-widget-label text-on-surface-variant mb-1">Быстрый доступ</div>
+          <div class="m3-widget-title text-on-surface mb-0.5">Избранное</div>
+          <div class="m3-widget-meta text-on-surface-variant">{{ favoritesCount }} элементов</div>
         </div>
-        <v-spacer></v-spacer>
-        <v-btn
-          icon="mdi-chevron-right"
-          variant="text"
-          density="comfortable"
-          size="small"
-          color="on-surface-variant"
-        ></v-btn>
+
+        <div class="m3-widget-trailing-icon d-flex align-center justify-center ml-4">
+          <v-icon icon="mdi-arrow-right" size="20" color="on-surface-variant"></v-icon>
+        </div>
       </div>
     </div>
 
     <!-- НАВИГАЦИЯ ПО ПАПКАМ (только внутри папки) -->
-    <div v-if="!isRoot" class="d-flex align-center justify-space-between mb-6">
-      <div class="d-flex align-center">
+    <div v-if="!isRoot" class="m3-folder-nav-bar d-flex align-center justify-space-between mb-6 pa-3 pl-4">
+      <div class="d-flex align-center min-width-0">
         <v-btn
           icon="mdi-arrow-left"
-          variant="text"
+          variant="tonal"
           color="primary"
-          size="large"
-          class="mr-2"
+          size="small"
+          class="mr-3"
           @click="goUp"
         ></v-btn>
-        <v-breadcrumbs :items="breadcrumb" class="m3-breadcrumbs">
-          <template v-slot:divider><v-icon size="18">mdi-chevron-right</v-icon></template>
+        <v-breadcrumbs :items="breadcrumb" class="m3-breadcrumbs pa-0">
+          <template v-slot:divider><v-icon size="18" class="opacity-60">mdi-chevron-right</v-icon></template>
           <template v-slot:item="{ item }">
             <v-btn
               variant="text"
               color="on-surface-variant"
-              class="text-none text-title-medium"
+              rounded="pill"
+              class="text-none text-title-medium px-3"
               :disabled="isLastBreadcrumb(item)"
               @click="goTo(breadcrumbIndex(item))"
             >
@@ -183,21 +187,21 @@
       </div>
       <div class="d-flex align-center" style="gap: 12px">
         <v-btn
-          variant="outlined"
-          color="primary"
+          variant="tonal"
+          color="secondary"
           rounded="pill"
-          class="text-none font-weight-medium"
-          prepend-icon="mdi-folder-plus"
+          class="text-none font-weight-medium px-5"
+          prepend-icon="mdi-folder-plus-outline"
           @click="createDialog = true"
         >
           Создать папку
         </v-btn>
         <v-btn
-          variant="tonal"
+          variant="flat"
           color="primary"
           rounded="pill"
-          class="text-none font-weight-medium"
-          prepend-icon="mdi-cloud-upload"
+          class="text-none font-weight-medium px-5"
+          prepend-icon="mdi-cloud-upload-outline"
           @click="pickFiles"
         >
           Загрузить
@@ -218,15 +222,19 @@
 
     <template v-else>
       <!-- ПУСТО -->
-      <div v-if="!folders.length && !files.length" class="m3-card pa-12 d-flex flex-column align-center justify-center">
-        <v-icon icon="mdi-folder-open-outline" color="on-surface-variant" size="80" class="mb-4"></v-icon>
-        <div class="text-h5 text-on-surface mb-2">Здесь пока пусто</div>
-        <div class="text-title-medium text-on-surface-variant mb-8">Перетащите файлы или создайте папку</div>
+      <div v-if="!folders.length && !files.length" class="m3-card m3-empty-state pa-12 d-flex flex-column align-center justify-center">
+        <div class="m3-empty-icon-wrap mb-5 d-flex align-center justify-center">
+          <v-icon icon="mdi-folder-open-outline" color="primary" size="48"></v-icon>
+        </div>
+        <div class="text-h5 font-weight-medium text-on-surface mb-2">Здесь пока пусто</div>
+        <div class="text-title-medium text-on-surface-variant mb-8 text-center" style="max-width: 360px;">
+          Перетащите файлы прямо в это окно или создайте новую папку
+        </div>
         <div class="d-flex gap-4">
-          <v-btn color="primary-container" rounded="pill" class="text-none font-weight-medium" prepend-icon="mdi-cloud-upload" @click="pickFiles">
-            <span class="text-on-primary-container">Загрузить</span>
+          <v-btn color="primary" variant="flat" rounded="pill" size="large" class="text-none font-weight-medium px-6" prepend-icon="mdi-cloud-upload-outline" @click="pickFiles">
+            Загрузить файлы
           </v-btn>
-          <v-btn variant="outlined" rounded="pill" class="text-none font-weight-medium" prepend-icon="mdi-folder-plus" @click="createDialog = true">
+          <v-btn variant="tonal" color="primary" rounded="pill" size="large" class="text-none font-weight-medium px-6" prepend-icon="mdi-folder-plus-outline" @click="createDialog = true">
             Создать папку
           </v-btn>
         </div>
@@ -234,10 +242,11 @@
 
       <!-- ПАПКИ -->
       <template v-if="folders.length">
-        <div class="m3-section-header d-flex align-center mb-6">
+        <div class="m3-section-header d-flex align-center mb-5">
           <h2 class="text-h5 font-weight-medium text-on-surface">Папки</h2>
+          <span class="m3-section-badge ml-3">{{ folders.length }}</span>
         </div>
-        <div class="m3-scroll-container gap-6 mb-12 pb-4">
+        <div class="m3-scroll-container gap-5 mb-12 pb-4">
           <div
             v-for="folder in folders"
             :key="folder.id"
@@ -249,15 +258,25 @@
             @click="openFolder(folder)"
           >
             <div class="d-flex justify-space-between align-start mb-6">
-              <v-icon :icon="fileIcon(folder)" :color="fileColor(folder)" size="56"></v-icon>
+              <div class="m3-folder-icon-box d-flex align-center justify-center">
+                <v-icon :icon="fileIcon(folder)" :color="fileColor(folder)" size="36"></v-icon>
+              </div>
               <v-menu>
                 <template v-slot:activator="{ props }">
-                  <v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" color="on-surface-variant" @click.stop></v-btn>
+                  <v-btn
+                    v-bind="props"
+                    icon="mdi-dots-vertical"
+                    variant="text"
+                    size="small"
+                    color="on-surface-variant"
+                    class="m3-card-menu-btn"
+                    @click.stop
+                  ></v-btn>
                 </template>
-                <v-list density="comfortable">
+                <v-list density="comfortable" class="m3-context-menu">
                   <v-list-item prepend-icon="mdi-folder-open-outline" title="Открыть" @click="openFolder(folder)"></v-list-item>
                   <v-list-item
-                    :prepend-icon="folder.isFavorite ? 'mdi-star-off' : 'mdi-star-outline'"
+                    :prepend-icon="folder.isFavorite ? 'mdi-star-off-outline' : 'mdi-star-outline'"
                     :title="folder.isFavorite ? 'Убрать из избранного' : 'В избранное'"
                     @click="toggleFavorite(folder)"
                   ></v-list-item>
@@ -267,8 +286,8 @@
               </v-menu>
             </div>
             <div class="mt-auto">
-              <div class="text-h6 font-weight-medium text-on-surface text-truncate mb-2">{{ folder.name }}</div>
-              <div class="text-title-medium text-on-surface-variant">{{ folder.items ?? 0 }} элементов</div>
+              <div class="text-title-large font-weight-medium text-on-surface text-truncate mb-1">{{ folder.name }}</div>
+              <div class="text-body-2 text-on-surface-variant">{{ folder.items ?? 0 }} элементов</div>
             </div>
           </div>
         </div>
@@ -276,14 +295,15 @@
 
       <!-- ФАЙЛЫ -->
       <template v-if="files.length">
-        <div class="m3-section-header d-flex align-center mb-6">
+        <div class="m3-section-header d-flex align-center mb-5">
           <h2 class="text-h5 font-weight-medium text-on-surface">{{ isRoot ? 'Файлы' : 'Файлы' }}</h2>
+          <span class="m3-section-badge ml-3">{{ files.length }}</span>
         </div>
-        <div class="d-flex flex-wrap gap-6 pb-12">
+        <div class="d-flex flex-wrap gap-5 pb-12">
           <div
             v-for="file in files"
             :key="file.id"
-            class="m3-card m3-file-card d-flex flex-column pa-5"
+            class="m3-card m3-file-card d-flex flex-column pa-4"
             v-ripple
             draggable="true"
             @dragstart="startPinDrag($event, file)"
@@ -291,18 +311,26 @@
             @click="openFile(file)"
           >
             <FileThumb :node="file" :thumb="thumbUrls[file.id]" />
-            <div class="d-flex align-center justify-space-between mt-auto">
-              <div class="overflow-hidden pr-3">
-                <div class="text-title-medium font-weight-medium text-on-surface text-truncate mb-1">{{ file.name }}</div>
-                <div class="text-body-1 text-on-surface-variant">{{ formatDate(file.updatedAt) }}</div>
+            <div class="d-flex align-center justify-space-between mt-auto pt-3">
+              <div class="overflow-hidden pr-2">
+                <div class="text-title-medium font-weight-medium text-on-surface text-truncate mb-0.5">{{ file.name }}</div>
+                <div class="text-body-2 text-on-surface-variant">{{ formatDate(file.updatedAt) }}</div>
               </div>
               <v-menu>
                 <template v-slot:activator="{ props }">
-                  <v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" color="on-surface-variant" @click.stop></v-btn>
+                  <v-btn
+                    v-bind="props"
+                    icon="mdi-dots-vertical"
+                    variant="text"
+                    size="small"
+                    color="on-surface-variant"
+                    class="m3-card-menu-btn"
+                    @click.stop
+                  ></v-btn>
                 </template>
-                <v-list density="comfortable">
+                <v-list density="comfortable" class="m3-context-menu">
                   <v-list-item
-                    :prepend-icon="file.isFavorite ? 'mdi-star-off' : 'mdi-star-outline'"
+                    :prepend-icon="file.isFavorite ? 'mdi-star-off-outline' : 'mdi-star-outline'"
                     :title="file.isFavorite ? 'Убрать из избранного' : 'В избранное'"
                     @click="toggleFavorite(file)"
                   ></v-list-item>
@@ -318,14 +346,17 @@
 
       <!-- НЕДАВНИЕ ФАЙЛЫ (только корень) -->
       <template v-if="isRoot && recent.length">
-        <div class="m3-section-header d-flex align-center justify-space-between mb-6">
-          <h2 class="text-h5 font-weight-medium text-on-surface">Недавние файлы</h2>
+        <div class="m3-section-header d-flex align-center justify-space-between mb-5">
+          <div class="d-flex align-center">
+            <h2 class="text-h5 font-weight-medium text-on-surface">Недавние файлы</h2>
+            <span class="m3-section-badge ml-3">{{ recent.length }}</span>
+          </div>
         </div>
-        <div class="m3-scroll-container gap-6 pb-12">
+        <div class="m3-scroll-container gap-5 pb-12">
           <div
             v-for="file in recent"
             :key="file.id"
-            class="m3-card m3-file-card d-flex flex-column pa-5"
+            class="m3-card m3-file-card d-flex flex-column pa-4"
             v-ripple
             draggable="true"
             @dragstart="startPinDrag($event, file)"
@@ -333,16 +364,24 @@
             @click="openFile(file, recent)"
           >
             <FileThumb :node="file" :thumb="thumbUrls[file.id]" />
-            <div class="d-flex align-center justify-space-between mt-auto">
-              <div class="overflow-hidden pr-3">
-                <div class="text-title-medium font-weight-medium text-on-surface text-truncate mb-1">{{ file.name }}</div>
-                <div class="text-body-1 text-on-surface-variant">{{ formatDate(file.updatedAt) }}</div>
+            <div class="d-flex align-center justify-space-between mt-auto pt-3">
+              <div class="overflow-hidden pr-2">
+                <div class="text-title-medium font-weight-medium text-on-surface text-truncate mb-0.5">{{ file.name }}</div>
+                <div class="text-body-2 text-on-surface-variant">{{ formatDate(file.updatedAt) }}</div>
               </div>
               <v-menu>
                 <template v-slot:activator="{ props }">
-                  <v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" color="on-surface-variant" @click.stop></v-btn>
+                  <v-btn
+                    v-bind="props"
+                    icon="mdi-dots-vertical"
+                    variant="text"
+                    size="small"
+                    color="on-surface-variant"
+                    class="m3-card-menu-btn"
+                    @click.stop
+                  ></v-btn>
                 </template>
-                <v-list density="comfortable">
+                <v-list density="comfortable" class="m3-context-menu">
                   <v-list-item prepend-icon="mdi-download" title="Скачать" @click="download(file)"></v-list-item>
                   <v-list-item prepend-icon="mdi-eye-off-outline" title="Скрыть из недавних" @click="hideRecent(file)"></v-list-item>
                 </v-list>
@@ -368,9 +407,9 @@
           @keyup.enter="submitCreateFolder"
         ></v-text-field>
         <div class="d-flex justify-end gap-4 mt-2">
-          <v-btn variant="text" class="text-none" @click="createDialog = false">Отмена</v-btn>
-          <v-btn color="primary-container" rounded="pill" class="text-none font-weight-medium" @click="submitCreateFolder">
-            <span class="text-on-primary-container">Создать</span>
+          <v-btn variant="text" rounded="pill" class="text-none" @click="createDialog = false">Отмена</v-btn>
+          <v-btn color="primary" variant="flat" rounded="pill" class="text-none font-weight-medium px-6" @click="submitCreateFolder">
+            Создать
           </v-btn>
         </div>
       </div>
@@ -388,9 +427,9 @@
           @keyup.enter="submitRename"
         ></v-text-field>
         <div class="d-flex justify-end gap-4 mt-2">
-          <v-btn variant="text" class="text-none" @click="renameDialog = false">Отмена</v-btn>
-          <v-btn color="primary-container" rounded="pill" class="text-none font-weight-medium" @click="submitRename">
-            <span class="text-on-primary-container">Сохранить</span>
+          <v-btn variant="text" rounded="pill" class="text-none" @click="renameDialog = false">Отмена</v-btn>
+          <v-btn color="primary" variant="flat" rounded="pill" class="text-none font-weight-medium px-6" @click="submitRename">
+            Сохранить
           </v-btn>
         </div>
       </div>
@@ -407,7 +446,7 @@
         <div class="m3-drag-scrim"></div>
         <div class="m3-drag-dialog d-flex flex-column align-center justify-center pa-12 elevation-6">
           <div class="m3-drag-icon-container mb-8">
-            <v-icon icon="mdi-cloud-upload" color="primary" size="100"></v-icon>
+            <v-icon icon="mdi-cloud-upload-outline" color="primary" size="96"></v-icon>
           </div>
           <h2 class="text-h3 font-weight-medium text-on-surface mb-4">Отпустите файлы</h2>
           <p class="text-h6 text-on-surface-variant text-center" style="line-height: 1.5;">
@@ -514,22 +553,12 @@ const storageLabel = computed(() => {
   return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.availableTotal)}`
 })
 
-/* ──────────────────────────────────────────────────────────────
-   ЖИВОЙ CANVAS-ФОН ДЛЯ HERO-КАРТОЧКИ (С АДАПТАЦИЕЙ ПОД АКЦЕНТ)
-   ────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   MATERIAL DESIGN 3 EXPRESSIVE — ОРГАНИЧЕСКИЙ ЖИВОЙ ФОН (БЕЗ ПОЛОС И ШУМА)
+   Дышащие биоморфные фигуры Material You на гладких замкнутых кривых Безье,
+   синхронизированные с акцентным цветом (--md-sys-color-primary / container).
+   ────────────────────────────────────────────────────────────────────────── */
 type RGB = [number, number, number]
-
-interface HeroParticle {
-  x: number
-  y: number
-  vx: number
-  vy: number
-  radius: number
-  depth: number
-  phase: number
-  speed: number
-  colorMix: number // 0..1 между primary и tertiary
-}
 
 const heroCardRef = ref<HTMLElement | null>(null)
 const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -539,45 +568,44 @@ let resizeObserver: ResizeObserver | null = null
 let themeObserver: MutationObserver | null = null
 let colorProbeCtx: CanvasRenderingContext2D | null = null
 
-const mouseState = {
-  targetX: 0.72,
-  targetY: 0.38,
-  currentX: 0.72,
-  currentY: 0.38,
-  active: false,
-  intensity: 0,
-}
-
-// Текущие и целевые цвета для плавного перехода при смене акцента
-const palette = {
-  primary: [139, 0, 3] as RGB,
-  tertiary: [180, 60, 80] as RGB,
-  secondary: [120, 70, 75] as RGB,
-  targetPrimary: [139, 0, 3] as RGB,
-  targetTertiary: [180, 60, 80] as RGB,
-  targetSecondary: [120, 70, 75] as RGB,
-}
-
-let particles: HeroParticle[] = []
 let canvasW = 0
 let canvasH = 0
 
-function parseCssColorToRgb(raw: string, fallback: RGB): RGB {
+// Плавная физика отклика на курсор (M3 spring-like damping)
+const pointer = {
+  targetX: 0.78,
+  targetY: 0.42,
+  x: 0.78,
+  y: 0.42,
+  vx: 0,
+  vy: 0,
+  hover: 0,
+  targetHover: 0,
+}
+
+const m3Palette = {
+  primary: [139, 0, 3] as RGB,
+  primaryContainer: [92, 16, 20] as RGB,
+  tertiary: [175, 68, 82] as RGB,
+  secondary: [130, 75, 78] as RGB,
+  targetPrimary: [139, 0, 3] as RGB,
+  targetPrimaryContainer: [92, 16, 20] as RGB,
+  targetTertiary: [175, 68, 82] as RGB,
+  targetSecondary: [130, 75, 78] as RGB,
+}
+
+function parseColorToRgb(raw: string, fallback: RGB): RGB {
   const val = raw.trim()
   if (!val) return fallback
 
-  // Если переменная хранит "R, G, B" (формат Vuetify --v-theme-primary)
   if (/^\d+\s*,\s*\d+\s*,\s*\d+$/.test(val)) {
     const parts = val.split(',').map((n) => parseInt(n.trim(), 10))
     return [parts[0] ?? fallback[0], parts[1] ?? fallback[1], parts[2] ?? fallback[2]]
   }
 
-  // Hex #RRGGBB или #RGB
   if (val.startsWith('#')) {
     let hex = val.slice(1)
-    if (hex.length === 3) {
-      hex = hex.split('').map((c) => c + c).join('')
-    }
+    if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('')
     if (hex.length >= 6) {
       const num = parseInt(hex.slice(0, 6), 16)
       if (!Number.isNaN(num)) {
@@ -586,7 +614,6 @@ function parseCssColorToRgb(raw: string, fallback: RGB): RGB {
     }
   }
 
-  // rgb() / rgba()
   const rgbMatch = val.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/i)
   if (rgbMatch) {
     return [
@@ -596,7 +623,6 @@ function parseCssColorToRgb(raw: string, fallback: RGB): RGB {
     ]
   }
 
-  // Универсальный фолбэк через 1x1 canvas для любых CSS-цветов (hsl, oklch и т.д.)
   try {
     if (!colorProbeCtx) {
       const c = document.createElement('canvas')
@@ -608,8 +634,8 @@ function parseCssColorToRgb(raw: string, fallback: RGB): RGB {
       colorProbeCtx.clearRect(0, 0, 1, 1)
       colorProbeCtx.fillStyle = val
       colorProbeCtx.fillRect(0, 0, 1, 1)
-      const data = colorProbeCtx.getImageData(0, 0, 1, 1).data
-      return [data[0], data[1], data[2]]
+      const d = colorProbeCtx.getImageData(0, 0, 1, 1).data
+      return [d[0], d[1], d[2]]
     }
   } catch {
     // ignore
@@ -618,8 +644,7 @@ function parseCssColorToRgb(raw: string, fallback: RGB): RGB {
   return fallback
 }
 
-function shiftHueAndBrighten(rgb: RGB, shiftDeg: number, boost = 1.15): RGB {
-  // Лёгкое смещение оттенка, если tertiary/secondary совпадают с primary
+function deriveTonalColor(rgb: RGB, hueShiftDeg: number, lightnessScale: number): RGB {
   const [r, g, b] = rgb.map((v) => v / 255)
   const max = Math.max(r, g, b)
   const min = Math.min(r, g, b)
@@ -644,9 +669,9 @@ function shiftHueAndBrighten(rgb: RGB, shiftDeg: number, boost = 1.15): RGB {
     h /= 6
   }
 
-  h = (h + shiftDeg / 360 + 1) % 1
-  const newL = Math.min(0.82, Math.max(0.28, l * boost))
-  const newS = Math.min(1, Math.max(0.45, s * 1.1))
+  h = (h + hueShiftDeg / 360 + 1) % 1
+  const newL = Math.min(0.84, Math.max(0.22, l * lightnessScale))
+  const newS = Math.min(0.95, Math.max(0.35, s))
 
   const hue2rgb = (p: number, q: number, t: number) => {
     let tt = t
@@ -667,74 +692,96 @@ function shiftHueAndBrighten(rgb: RGB, shiftDeg: number, boost = 1.15): RGB {
   ]
 }
 
-function sampleAccentColors(): void {
+function syncM3Palette(): void {
   const el = heroCardRef.value || document.documentElement
   const styles = getComputedStyle(el)
   const rootStyles = getComputedStyle(document.documentElement)
 
-  const readVar = (name: string) =>
+  const getVar = (name: string) =>
     styles.getPropertyValue(name).trim() || rootStyles.getPropertyValue(name).trim()
 
-  const rawPrimary =
-    readVar('--md-sys-color-primary') ||
-    readVar('--v-theme-primary') ||
-    '#8B0003'
+  const rawPrimary = getVar('--md-sys-color-primary') || getVar('--v-theme-primary') || '#8B0003'
+  const primary = parseColorToRgb(rawPrimary, [139, 0, 3])
 
-  const primaryRgb = parseCssColorToRgb(rawPrimary, [139, 0, 3])
+  const rawPrimaryContainer = getVar('--md-sys-color-primary-container')
+  const primaryContainer = rawPrimaryContainer
+    ? parseColorToRgb(rawPrimaryContainer, deriveTonalColor(primary, 6, 0.72))
+    : deriveTonalColor(primary, 6, 0.72)
 
-  const rawTertiary =
-    readVar('--md-sys-color-tertiary') ||
-    readVar('--v-theme-secondary')
-  const tertiaryRgb = rawTertiary
-    ? parseCssColorToRgb(rawTertiary, shiftHueAndBrighten(primaryRgb, 28, 1.25))
-    : shiftHueAndBrighten(primaryRgb, 28, 1.25)
+  const rawTertiary = getVar('--md-sys-color-tertiary')
+  const tertiary = rawTertiary
+    ? parseColorToRgb(rawTertiary, deriveTonalColor(primary, 24, 1.18))
+    : deriveTonalColor(primary, 24, 1.18)
 
-  const rawSecondary = readVar('--md-sys-color-secondary')
-  const secondaryRgb = rawSecondary
-    ? parseCssColorToRgb(rawSecondary, shiftHueAndBrighten(primaryRgb, -22, 1.1))
-    : shiftHueAndBrighten(primaryRgb, -22, 1.1)
+  const rawSecondary = getVar('--md-sys-color-secondary')
+  const secondary = rawSecondary
+    ? parseColorToRgb(rawSecondary, deriveTonalColor(primary, -18, 0.95))
+    : deriveTonalColor(primary, -18, 0.95)
 
-  palette.targetPrimary = primaryRgb
-  palette.targetTertiary = tertiaryRgb
-  palette.targetSecondary = secondaryRgb
+  m3Palette.targetPrimary = primary
+  m3Palette.targetPrimaryContainer = primaryContainer
+  m3Palette.targetTertiary = tertiary
+  m3Palette.targetSecondary = secondary
 }
 
-function lerpColor(current: RGB, target: RGB, factor: number): void {
-  current[0] += (target[0] - current[0]) * factor
-  current[1] += (target[1] - current[1]) * factor
-  current[2] += (target[2] - current[2]) * factor
+function lerpRgb(curr: RGB, target: RGB, speed: number): void {
+  curr[0] += (target[0] - curr[0]) * speed
+  curr[1] += (target[1] - curr[1]) * speed
+  curr[2] += (target[2] - curr[2]) * speed
 }
 
-function mixRgb(a: RGB, b: RGB, t: number): RGB {
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * t),
-    Math.round(a[1] + (b[1] - a[1]) * t),
-    Math.round(a[2] + (b[2] - a[2]) * t),
-  ]
-}
-
-function rgbaStr(rgb: RGB, alpha: number): string {
+function rgba(rgb: RGB, alpha: number): string {
   return `rgba(${Math.round(rgb[0])}, ${Math.round(rgb[1])}, ${Math.round(rgb[2])}, ${alpha})`
 }
 
-function createParticles(width: number, height: number): HeroParticle[] {
-  const count = 38
-  const list: HeroParticle[] = []
-  for (let i = 0; i < count; i++) {
-    const depth = 0.3 + Math.random() * 0.7
-    list.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.35 * depth,
-      vy: -(0.12 + Math.random() * 0.32) * depth,
-      radius: (1.1 + Math.random() * 2.6) * depth,
-      depth,
-      phase: Math.random() * Math.PI * 2,
-      speed: 0.012 + Math.random() * 0.025,
-      colorMix: Math.random(),
+/**
+ * Рисует идеально гладкую замкнутую биоморфную фигуру Material You
+ * через квадратичную сплайн-интерполяцию по серединам сегментов.
+ */
+function traceOrganicM3Shape(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  baseRadius: number,
+  lobes: number,
+  time: number,
+  rotation: number,
+  lobeDepth: number,
+  organicWobble: number,
+  phaseOffset: number
+): void {
+  const steps = Math.max(24, lobes * 6)
+  const pts: { x: number; y: number }[] = []
+
+  for (let i = 0; i < steps; i++) {
+    const theta = (i / steps) * Math.PI * 2
+    // Основная гармоника формы M3 (клевер / цветок / сквиркл)
+    const primaryWave = Math.cos(theta * lobes + rotation) * lobeDepth
+    // Вторичное живое дыхание (делает форму органической, а не сухой шестерёнкой)
+    const breathWave =
+      Math.sin(theta * 2 - time * 0.9 + phaseOffset) * organicWobble +
+      Math.cos(theta * 3 + time * 0.65 - phaseOffset) * (organicWobble * 0.6)
+
+    const r = baseRadius * (1 + primaryWave + breathWave)
+    pts.push({
+      x: cx + Math.cos(theta) * r,
+      y: cy + Math.sin(theta) * r,
     })
   }
-  return list
+
+  ctx.beginPath()
+  const firstMidX = (pts[pts.length - 1].x + pts[0].x) * 0.5
+  const firstMidY = (pts[pts.length - 1].y + pts[0].y) * 0.5
+  ctx.moveTo(firstMidX, firstMidY)
+
+  for (let i = 0; i < pts.length; i++) {
+    const p0 = pts[i]
+    const p1 = pts[(i + 1) % pts.length]
+    const midX = (p0.x + p1.x) * 0.5
+    const midY = (p0.y + p1.y) * 0.5
+    ctx.quadraticCurveTo(p0.x, p0.y, midX, midY)
+  }
+  ctx.closePath()
 }
 
 function resizeHeroCanvas(): void {
@@ -754,10 +801,6 @@ function resizeHeroCanvas(): void {
   if (ctx) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   }
-
-  if (!particles.length) {
-    particles = createParticles(canvasW, canvasH)
-  }
 }
 
 function onHeroMouseMove(e: MouseEvent): void {
@@ -765,15 +808,15 @@ function onHeroMouseMove(e: MouseEvent): void {
   if (!card) return
   const rect = card.getBoundingClientRect()
   if (!rect.width || !rect.height) return
-  mouseState.targetX = (e.clientX - rect.left) / rect.width
-  mouseState.targetY = (e.clientY - rect.top) / rect.height
-  mouseState.active = true
+  pointer.targetX = (e.clientX - rect.left) / rect.width
+  pointer.targetY = (e.clientY - rect.top) / rect.height
+  pointer.targetHover = 1
 }
 
 function onHeroMouseLeave(): void {
-  mouseState.active = false
-  mouseState.targetX = 0.72
-  mouseState.targetY = 0.38
+  pointer.targetX = 0.78
+  pointer.targetY = 0.42
+  pointer.targetHover = 0
 }
 
 function startHeroAnimation(): void {
@@ -781,223 +824,117 @@ function startHeroAnimation(): void {
   if (!isRoot.value) return
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-  sampleAccentColors()
-  palette.primary = [...palette.targetPrimary] as RGB
-  palette.tertiary = [...palette.targetTertiary] as RGB
-  palette.secondary = [...palette.targetSecondary] as RGB
+  syncM3Palette()
+  m3Palette.primary = [...m3Palette.targetPrimary] as RGB
+  m3Palette.primaryContainer = [...m3Palette.targetPrimaryContainer] as RGB
+  m3Palette.tertiary = [...m3Palette.targetTertiary] as RGB
+  m3Palette.secondary = [...m3Palette.targetSecondary] as RGB
 
   resizeHeroCanvas()
 
-  let frameCounter = 0
+  let tick = 0
 
-  const render = (time: number) => {
+  const renderFrame = (now: number) => {
     const canvas = heroCanvasRef.value
     if (!canvas || !isRoot.value) return
     const ctx = canvas.getContext('2d')
     if (!ctx || !canvasW || !canvasH) {
-      rafId = requestAnimationFrame(render)
+      rafId = requestAnimationFrame(renderFrame)
       return
     }
 
-    frameCounter++
-    // Периодически проверяем CSS-переменные на случай динамической смены темы/акцента
-    if (frameCounter % 30 === 0) {
-      sampleAccentColors()
+    tick++
+    if (tick % 35 === 0) {
+      syncM3Palette()
     }
 
-    // Плавная интерполяция цветов
-    lerpColor(palette.primary, palette.targetPrimary, 0.06)
-    lerpColor(palette.tertiary, palette.targetTertiary, 0.06)
-    lerpColor(palette.secondary, palette.targetSecondary, 0.06)
+    // Плавный переход палитры при смене акцента
+    lerpRgb(m3Palette.primary, m3Palette.targetPrimary, 0.05)
+    lerpRgb(m3Palette.primaryContainer, m3Palette.targetPrimaryContainer, 0.05)
+    lerpRgb(m3Palette.tertiary, m3Palette.targetTertiary, 0.05)
+    lerpRgb(m3Palette.secondary, m3Palette.targetSecondary, 0.05)
 
-    // Плавное следование курсора
-    mouseState.currentX += (mouseState.targetX - mouseState.currentX) * 0.05
-    mouseState.currentY += (mouseState.targetY - mouseState.currentY) * 0.05
-    const targetIntensity = mouseState.active ? 1 : 0
-    mouseState.intensity += (targetIntensity - mouseState.intensity) * 0.06
+    // Пружинная инерция курсора (ощущение вязкой органической среды)
+    const spring = 0.035
+    const damping = 0.84
+    pointer.vx = (pointer.vx + (pointer.targetX - pointer.x) * spring) * damping
+    pointer.vy = (pointer.vy + (pointer.targetY - pointer.y) * spring) * damping
+    pointer.x += pointer.vx
+    pointer.y += pointer.vy
+    pointer.hover += (pointer.targetHover - pointer.hover) * 0.04
 
-    const t = time * 0.001
+    const t = now * 0.00065
     ctx.clearRect(0, 0, canvasW, canvasH)
 
-    // 1. Интерактивное световое гало за курсором (или в правой части карточки по умолчанию)
-    const auraX = mouseState.currentX * canvasW
-    const auraY = mouseState.currentY * canvasH
-    const auraRadius = Math.max(canvasW, canvasH) * (0.48 + mouseState.intensity * 0.12)
-    const auraGrad = ctx.createRadialGradient(auraX, auraY, 0, auraX, auraY, auraRadius)
-    auraGrad.addColorStop(0, rgbaStr(palette.primary, 0.22 + mouseState.intensity * 0.1))
-    auraGrad.addColorStop(0.45, rgbaStr(palette.tertiary, 0.09 + mouseState.intensity * 0.05))
-    auraGrad.addColorStop(1, rgbaStr(palette.primary, 0))
-    ctx.fillStyle = auraGrad
+    const minDim = Math.min(canvasW, canvasH)
+    const offsetX = (pointer.x - 0.75) * 48
+    const offsetY = (pointer.y - 0.45) * 36
+
+    // 1. Фоновое мягкое свечение Material You (Ambient Fluid Mesh)
+    const meshX = canvasW * 0.78 + offsetX * 0.9
+    const meshY = canvasH * 0.44 + offsetY * 0.9
+    const meshGrad = ctx.createRadialGradient(meshX, meshY, minDim * 0.05, meshX, meshY, canvasW * 0.72)
+    meshGrad.addColorStop(0, rgba(m3Palette.primary, 0.22 + pointer.hover * 0.06))
+    meshGrad.addColorStop(0.45, rgba(m3Palette.primaryContainer, 0.14))
+    meshGrad.addColorStop(1, rgba(m3Palette.primary, 0))
+    ctx.fillStyle = meshGrad
     ctx.fillRect(0, 0, canvasW, canvasH)
 
-    // 2. Шёлковые гармонические волны (Silk Aurora Ribbons)
-    const ribbons = [
-      {
-        baseY: canvasH * 0.62,
-        amp1: 26,
-        amp2: 14,
-        freq1: 0.0055,
-        freq2: 0.011,
-        speed1: 0.75,
-        speed2: -0.48,
-        colorA: palette.primary,
-        colorB: palette.tertiary,
-        fillAlpha: 0.16,
-        strokeAlpha: 0.42,
-        parallax: 24,
-      },
-      {
-        baseY: canvasH * 0.72,
-        amp1: 22,
-        amp2: 18,
-        freq1: 0.007,
-        freq2: 0.0045,
-        speed1: -0.62,
-        speed2: 0.85,
-        colorA: palette.tertiary,
-        colorB: palette.secondary,
-        fillAlpha: 0.13,
-        strokeAlpha: 0.32,
-        parallax: -18,
-      },
-      {
-        baseY: canvasH * 0.48,
-        amp1: 30,
-        amp2: 12,
-        freq1: 0.0042,
-        freq2: 0.0085,
-        speed1: 0.52,
-        speed2: 0.35,
-        colorA: palette.secondary,
-        colorB: palette.primary,
-        fillAlpha: 0.1,
-        strokeAlpha: 0.26,
-        parallax: 14,
-      },
-      {
-        baseY: canvasH * 0.82,
-        amp1: 16,
-        amp2: 10,
-        freq1: 0.0085,
-        freq2: 0.014,
-        speed1: 0.95,
-        speed2: -0.7,
-        colorA: palette.primary,
-        colorB: palette.tertiary,
-        fillAlpha: 0.18,
-        strokeAlpha: 0.48,
-        parallax: 30,
-      },
-    ]
+    // 2. ФИГУРА 1 (Крупный фоновый M3 Scallop / 6-лепестковый мягкий контур в правом верхнем углу)
+    const c1x = canvasW * 0.86 + Math.sin(t * 0.7) * 18 + offsetX * 0.45
+    const c1y = canvasH * 0.22 + Math.cos(t * 0.55) * 16 + offsetY * 0.45
+    const r1 = minDim * 0.54
 
-    const mouseOffsetY = (mouseState.currentY - 0.5) * 2
-    const mouseOffsetX = (mouseState.currentX - 0.5) * 2
+    traceOrganicM3Shape(ctx, c1x, c1y, r1, 6, t, t * 0.22, 0.085, 0.045, 0.4)
+    const grad1 = ctx.createRadialGradient(c1x - r1 * 0.2, c1y - r1 * 0.2, r1 * 0.05, c1x, c1y, r1 * 1.15)
+    grad1.addColorStop(0, rgba(m3Palette.primary, 0.26))
+    grad1.addColorStop(0.6, rgba(m3Palette.primaryContainer, 0.16))
+    grad1.addColorStop(1, rgba(m3Palette.primary, 0.02))
+    ctx.fillStyle = grad1
+    ctx.fill()
 
-    for (const r of ribbons) {
-      ctx.beginPath()
-      const step = 12
-      let firstY = r.baseY
+    ctx.strokeStyle = rgba(m3Palette.primary, 0.18)
+    ctx.lineWidth = 1.25
+    ctx.stroke()
 
-      for (let x = 0; x <= canvasW + step; x += step) {
-        const nx = x + mouseOffsetX * r.parallax
-        // Локальное притяжение волны к курсору
-        const distToMouseX = (x - auraX) / (canvasW * 0.35)
-        const mousePull = Math.exp(-distToMouseX * distToMouseX) * mouseOffsetY * r.parallax * mouseState.intensity
+    // 3. ФИГУРА 2 (Средний органический клевер M3 / 4-лепестковая текучая форма снизу справа)
+    const c2x = canvasW * 0.72 + Math.cos(t * 0.62) * 22 - offsetX * 0.65
+    const c2y = canvasH * 0.82 + Math.sin(t * 0.78) * 18 - offsetY * 0.65
+    const r2 = minDim * 0.44
 
-        const y =
-          r.baseY +
-          Math.sin(nx * r.freq1 + t * r.speed1) * r.amp1 +
-          Math.cos(nx * r.freq2 + t * r.speed2) * r.amp2 +
-          mousePull
+    traceOrganicM3Shape(ctx, c2x, c2y, r2, 4, t * 1.15, -t * 0.28 + 0.8, 0.11, 0.055, 2.1)
+    const grad2 = ctx.createLinearGradient(c2x - r2, c2y - r2, c2x + r2, c2y + r2)
+    grad2.addColorStop(0, rgba(m3Palette.tertiary, 0.24))
+    grad2.addColorStop(0.55, rgba(m3Palette.primary, 0.16))
+    grad2.addColorStop(1, rgba(m3Palette.secondary, 0.03))
+    ctx.fillStyle = grad2
+    ctx.fill()
 
-        if (x === 0) {
-          firstY = y
-          ctx.moveTo(x, y)
-        } else {
-          ctx.lineTo(x, y)
-        }
-      }
+    ctx.strokeStyle = rgba(m3Palette.tertiary, 0.2)
+    ctx.lineWidth = 1.2
+    ctx.stroke()
 
-      // Свечение вдоль гребня волны
-      const strokeGrad = ctx.createLinearGradient(0, 0, canvasW, 0)
-      strokeGrad.addColorStop(0, rgbaStr(r.colorA, 0.04))
-      strokeGrad.addColorStop(0.35, rgbaStr(r.colorA, r.strokeAlpha))
-      strokeGrad.addColorStop(0.75, rgbaStr(r.colorB, r.strokeAlpha * 1.15))
-      strokeGrad.addColorStop(1, rgbaStr(r.colorB, 0.08))
+    // 4. ФИГУРА 3 (Мягкая дышащая капля-сквиркл в центре-справа, чутко откликающаяся на курсор)
+    const c3x = canvasW * 0.64 + Math.sin(t * 0.95 + 1.2) * 16 + offsetX * 1.15
+    const c3y = canvasH * 0.46 + Math.cos(t * 0.82 + 0.5) * 14 + offsetY * 1.15
+    const r3 = minDim * (0.29 + pointer.hover * 0.025)
 
-      ctx.strokeStyle = strokeGrad
-      ctx.lineWidth = 1.6
-      ctx.stroke()
+    traceOrganicM3Shape(ctx, c3x, c3y, r3, 5, t * 1.3, t * 0.35, 0.075, 0.06, 4.2)
+    const grad3 = ctx.createRadialGradient(c3x, c3y, 0, c3x, c3y, r3 * 1.15)
+    grad3.addColorStop(0, rgba(m3Palette.primary, 0.28 + pointer.hover * 0.08))
+    grad3.addColorStop(0.65, rgba(m3Palette.tertiary, 0.12))
+    grad3.addColorStop(1, rgba(m3Palette.primary, 0))
+    ctx.fillStyle = grad3
+    ctx.fill()
 
-      // Заливка шёлкового шлейфа вниз
-      ctx.lineTo(canvasW, canvasH + 20)
-      ctx.lineTo(0, canvasH + 20)
-      ctx.lineTo(0, firstY)
-      ctx.closePath()
+    ctx.strokeStyle = rgba(m3Palette.primary, 0.24 + pointer.hover * 0.1)
+    ctx.lineWidth = 1.4
+    ctx.stroke()
 
-      const fillGrad = ctx.createLinearGradient(0, r.baseY - 40, 0, canvasH)
-      fillGrad.addColorStop(0, rgbaStr(r.colorA, r.fillAlpha))
-      fillGrad.addColorStop(0.55, rgbaStr(r.colorB, r.fillAlpha * 0.45))
-      fillGrad.addColorStop(1, rgbaStr(r.colorB, 0))
-      ctx.fillStyle = fillGrad
-      ctx.fill()
-    }
-
-    // 3. Биолюминесцентные частицы и созвездия
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i]
-      p.phase += p.speed
-      p.x += p.vx + Math.sin(p.phase * 0.7) * 0.15
-      p.y += p.vy
-
-      // Лёгкое отталкивание/реакция частиц на курсор
-      if (mouseState.intensity > 0.05) {
-        const dx = p.x - auraX
-        const dy = p.y - auraY
-        const distSq = dx * dx + dy * dy
-        const minDist = 130
-        if (distSq < minDist * minDist && distSq > 1) {
-          const dist = Math.sqrt(distSq)
-          const force = (1 - dist / minDist) * 0.55 * mouseState.intensity * p.depth
-          p.x += (dx / dist) * force
-          p.y += (dy / dist) * force
-        }
-      }
-
-      //Бесшовный респаун частиц за границами
-      if (p.y < -12) {
-        p.y = canvasH + 10
-        p.x = Math.random() * canvasW
-      }
-      if (p.x < -12) p.x = canvasW + 10
-      if (p.x > canvasW + 12) p.x = -10
-
-      const pulse = 0.45 + 0.55 * Math.sin(p.phase)
-      const pColor = mixRgb(palette.primary, palette.tertiary, p.colorMix)
-      const alpha = (0.18 + pulse * 0.42) * p.depth
-
-      // Мягкое гало частицы
-      const glowRadius = p.radius * 3.8
-      const pGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowRadius)
-      pGrad.addColorStop(0, rgbaStr(pColor, alpha))
-      pGrad.addColorStop(0.45, rgbaStr(pColor, alpha * 0.35))
-      pGrad.addColorStop(1, rgbaStr(pColor, 0))
-      ctx.fillStyle = pGrad
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, glowRadius, 0, Math.PI * 2)
-      ctx.fill()
-
-      // Яркое ядро частицы
-      ctx.fillStyle = rgbaStr([255, 255, 255], alpha * 0.75)
-      ctx.beginPath()
-      ctx.arc(p.x, p.y, p.radius * 0.55, 0, Math.PI * 2)
-      ctx.fill()
-    }
-
-    rafId = requestAnimationFrame(render)
+    rafId = requestAnimationFrame(renderFrame)
   }
 
-  rafId = requestAnimationFrame(render)
+  rafId = requestAnimationFrame(renderFrame)
 }
 
 function stopHeroAnimation(): void {
@@ -1018,7 +955,7 @@ function setupHeroObservers(): void {
 
   if (themeObserver) themeObserver.disconnect()
   themeObserver = new MutationObserver(() => {
-    sampleAccentColors()
+    syncM3Palette()
   })
   themeObserver.observe(document.documentElement, {
     attributes: true,
@@ -1246,24 +1183,208 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.m3-dialog {
-  background: var(--md-sys-color-surface-container-high);
-  border-radius: 28px;
-  padding: 32px;
-  border: 1px solid var(--md-sys-color-outline-variant);
+/* ═══════════════════════════════════════════════════════════════════════════
+   1. ХИРО-СЕКЦИЯ И ОРГАНИЧЕСКИЙ MATERIAL YOU ФОН (БЕЗ БЛИКОВ-ЛИНИЙ)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.m3-hero-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 32px !important;
+  background-color: var(--md-sys-color-surface-container);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #444) 38%, transparent);
+}
+
+/* Тональная подложка Material 3 */
+.m3-hero-ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.m3-hero-ambient-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(68px);
+  pointer-events: none;
+  will-change: transform;
+}
+
+.m3-hero-ambient-glow--1 {
+  width: 420px;
+  height: 420px;
+  top: -150px;
+  right: -100px;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent) 0%,
+    transparent 70%
+  );
+  animation: m3-ambient-drift-1 18s ease-in-out infinite alternate;
+}
+
+.m3-hero-ambient-glow--2 {
+  width: 360px;
+  height: 360px;
+  bottom: -140px;
+  right: 12%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 24%, transparent) 0%,
+    transparent 72%
+  );
+  animation: m3-ambient-drift-2 22s ease-in-out infinite alternate;
+}
+
+/* Холст с органическими фигурами Material 3 */
+.m3-hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Мягкая защита читаемости текста в левой части карточки */
+.m3-hero-readability-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--md-sys-color-surface-container) 78%, transparent) 0%,
+    color-mix(in srgb, var(--md-sys-color-surface-container) 42%, transparent) 48%,
+    transparent 85%
+  );
+}
+
+.m3-hero-content {
+  position: relative;
+  z-index: 3;
+}
+
+/* Тональный бейдж над приветствием в стиле Google One / Pixel UI */
+.m3-hero-chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--md-sys-color-on-secondary-container, var(--md-sys-color-on-surface));
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 14%,
+    var(--md-sys-color-surface-container-high, rgba(255, 255, 255, 0.06))
+  );
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 24%, transparent);
+}
+
+.m3-hero-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--md-sys-color-primary) 80%, transparent);
+}
+
+.hero-title {
+  line-height: 1.16 !important;
+  letter-spacing: -0.022em !important;
+}
+
+.hero-username {
+  display: inline-block;
+}
+
+.hero-subtitle {
+  line-height: 1.6 !important;
+  max-width: 500px;
+  opacity: 0.88;
+}
+
+.hero-btn-primary {
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.25s cubic-bezier(0.2, 0, 0, 1) !important;
+}
+.hero-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -6px color-mix(in srgb, var(--md-sys-color-primary) 45%, transparent) !important;
+}
+
+.hero-btn-secondary {
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 14%,
+    var(--md-sys-color-surface-container-highest, rgba(255, 255, 255, 0.07))
+  ) !important;
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s ease !important;
+}
+.hero-btn-secondary:hover {
+  transform: translateY(-2px);
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 22%,
+    var(--md-sys-color-surface-container-highest, rgba(255, 255, 255, 0.1))
+  ) !important;
+}
+
+/* Правый баннер — полностью статичный, некликабельный */
+.m3-hero-image-card--static {
+  cursor: default !important;
+  user-select: none;
+  border-radius: 32px !important;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #444) 35%, transparent);
+  transform: none !important;
+}
+
+.m3-banner-badge {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+@keyframes m3-ambient-drift-1 {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-45px, 35px, 0) scale(1.12); }
+}
+
+@keyframes m3-ambient-drift-2 {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-35px, -40px, 0) scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m3-hero-ambient-glow {
+    animation: none !important;
+  }
+  .m3-hero-canvas {
+    display: none;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   1. КОМПАКТНЫЕ ВИДЖЕТЫ (ХРАНИЛИЩЕ И ИЗБРАННОЕ)
+   2. ВИДЖЕТЫ (ХРАНИЛИЩЕ И ИЗБРАННОЕ) — СБАЛАНСИРОВАННЫЙ РАЗМЕР MATERIAL 3
    ═══════════════════════════════════════════════════════════════════════════ */
-.m3-widget-card--compact {
-  padding: 11px 16px !important;
-  min-height: 68px !important;
-  border-radius: 20px !important;
-  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #444) 45%, transparent);
-  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1),
-              background-color 0.2s ease,
-              border-color 0.25s ease;
+.m3-widget-card {
+  padding: 20px 24px !important;
+  min-height: 98px !important;
+  border-radius: 24px !important;
+  background-color: var(--md-sys-color-surface-container) !important;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #444) 38%, transparent);
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1),
+    background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .m3-widget-card--static {
@@ -1278,403 +1399,152 @@ onBeforeUnmount(() => {
 }
 .m3-widget-card--interactive:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+  background-color: var(--md-sys-color-surface-container-high, var(--md-sys-color-surface-container)) !important;
+  border-color: color-mix(in srgb, var(--md-sys-color-primary) 42%, transparent);
 }
 
-.m3-widget-avatar {
-  width: 44px !important;
-  height: 44px !important;
-  border-radius: 13px !important;
+.m3-progress-container {
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.widget-progress-text {
-  font-size: 0.68rem !important;
+.m3-circular-gauge :deep(.v-progress-circular__overlay) {
+  stroke-linecap: round;
+}
+
+.m3-gauge-label {
+  font-size: 0.78rem;
+  font-weight: 700;
   letter-spacing: -0.02em;
+  color: var(--md-sys-color-on-surface);
 }
 
-.widget-eyebrow {
-  font-size: 0.72rem;
-  line-height: 1.15;
+.m3-widget-avatar {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 18px !important;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.m3-widget-label {
+  font-size: 0.8rem;
+  line-height: 1.25;
   font-weight: 500;
-  opacity: 0.82;
+  letter-spacing: 0.01em;
 }
 
-.widget-main-value {
-  font-size: 0.94rem;
-  line-height: 1.25;
+.m3-widget-title {
+  font-size: 1.15rem;
+  line-height: 1.3;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 
-.widget-sub-value {
-  font-size: 0.76rem;
-  line-height: 1.2;
-  opacity: 0.8;
-  margin-top: 1px;
+.m3-widget-meta {
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
-.widget-meta-row {
-  font-size: 0.71rem;
-  line-height: 1.25;
-  opacity: 0.78;
-}
-
-.widget-meta-dot {
-  opacity: 0.5;
-}
-
-.storage-dir {
-  max-width: 180px;
+.m3-storage-dir-pill {
+  max-width: 170px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.68rem;
-  background: color-mix(in srgb, var(--md-sys-color-on-surface) 7%, transparent);
-  padding: 1px 6px;
-  border-radius: 6px;
+  font-size: 0.72rem;
+  color: var(--md-sys-color-on-surface-variant);
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+.m3-widget-trailing-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 6%, transparent);
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), background-color 0.25s ease;
+}
+
+.m3-widget-card--interactive:hover .m3-widget-trailing-icon {
+  transform: translateX(4px);
+  background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   2. ЖИВОЙ МНОГОСЛОЙНЫЙ ФОН ХИРО-КАРТОЧКИ (ПОДСТРОЙКА ПОД АКЦЕНТНЫЙ ЦВЕТ)
+   3. СЕКЦИИ, ПАПКИ, ФАЙЛЫ И ДИАЛОГИ В ЭСТЕТИКЕ MATERIAL DESIGN 3
    ═══════════════════════════════════════════════════════════════════════════ */
-.m3-hero-card {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  background:
-    radial-gradient(
-      130% 110% at 95% 10%,
-      color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent) 0%,
-      transparent 65%
-    ),
-    radial-gradient(
-      110% 100% at 5% 95%,
-      color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 14%, transparent) 0%,
-      transparent 65%
-    ),
-    var(--md-sys-color-surface-container);
-  transition: box-shadow 0.4s ease;
+.m3-section-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--md-sys-color-primary);
+  background: color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent);
 }
 
-/* Контент всегда поверх анимационных слоёв */
-.m3-hero-content {
-  position: relative;
-  z-index: 4;
+.m3-folder-nav-bar {
+  background: var(--md-sys-color-surface-container);
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #444) 35%, transparent);
 }
 
-/* Базовый контейнер CSS-анимаций */
-.m3-hero-bg-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-/* Canvas со световыми шёлковыми волнами и частицами */
-.m3-hero-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  pointer-events: none;
-  mix-blend-mode: plus-lighter;
-  opacity: 0.92;
-}
-
-/* Мягкая виньетка для идеальной читаемости текста слева */
-.m3-hero-vignette {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background:
-    radial-gradient(
-      90% 90% at 22% 42%,
-      color-mix(in srgb, var(--md-sys-color-surface-container) 52%, transparent) 0%,
-      transparent 75%
-    );
-}
-
-/* Внутренний стеклянный контур с переливом от акцентного цвета */
-.m3-hero-border-glow {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow:
-    inset 0 1px 0 0 color-mix(in srgb, var(--md-sys-color-primary) 38%, rgba(255, 255, 255, 0.14)),
-    inset 0 0 36px 0 color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
-}
-
-/* ─── Органические морфинг-сферы (CSS Aurora Blobs) ─── */
-.m3-hero-blob {
-  position: absolute;
-  pointer-events: none;
-  filter: blur(54px);
-  will-change: transform, border-radius;
-}
-
-.m3-hero-blob--1 {
-  width: 380px;
-  height: 380px;
-  top: -130px;
-  right: -90px;
-  background: radial-gradient(
-    circle at 40% 40%,
-    color-mix(in srgb, var(--md-sys-color-primary) 46%, transparent) 0%,
-    color-mix(in srgb, var(--md-sys-color-primary-container, var(--md-sys-color-primary)) 20%, transparent) 48%,
-    transparent 74%
-  );
-  animation: hero-morph-1 16s ease-in-out infinite alternate;
-}
-
-.m3-hero-blob--2 {
-  width: 340px;
-  height: 340px;
-  bottom: -130px;
-  left: -80px;
-  background: radial-gradient(
-    circle at 60% 50%,
-    color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 36%, transparent) 0%,
-    color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent) 52%,
-    transparent 74%
-  );
-  animation: hero-morph-2 21s ease-in-out infinite alternate;
-}
-
-.m3-hero-blob--3 {
-  width: 300px;
-  height: 300px;
-  top: 28%;
-  left: 44%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--md-sys-color-secondary, var(--md-sys-color-primary)) 30%, transparent) 0%,
-    transparent 70%
-  );
-  animation: hero-morph-3 19s ease-in-out infinite alternate;
-}
-
-.m3-hero-blob--4 {
-  width: 220px;
-  height: 220px;
-  bottom: 8%;
-  right: 14%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--md-sys-color-primary) 34%, white 10%) 0%,
-    transparent 68%
-  );
-  opacity: 0.55;
-  animation: hero-morph-4 13s ease-in-out infinite alternate;
-}
-
-/* ─── Точечная матрица с радиальной маской ─── */
-.m3-hero-dot-grid {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(
-    color-mix(in srgb, var(--md-sys-color-primary) 36%, var(--md-sys-color-on-surface) 14%) 1px,
-    transparent 1px
-  );
-  background-size: 22px 22px;
-  opacity: 0.24;
-  mask-image: radial-gradient(ellipse 80% 75% at 78% 35%, #000 15%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 75% at 78% 35%, #000 15%, transparent 75%);
-  animation: hero-grid-breathe 10s ease-in-out infinite alternate;
-}
-
-/* ─── Декоративные орбитальные кольца в правом верхнем углу ─── */
-.m3-hero-orbits {
-  position: absolute;
-  top: -60px;
-  right: -60px;
-  width: 340px;
-  height: 340px;
-  pointer-events: none;
-  opacity: 0.45;
-}
-
-.m3-hero-orbit {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1px solid transparent;
-}
-
-.m3-hero-orbit--1 {
-  border-top-color: color-mix(in srgb, var(--md-sys-color-primary) 55%, transparent);
-  border-right-color: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
-  animation: hero-orbit-spin 26s linear infinite;
-}
-
-.m3-hero-orbit--2 {
-  inset: 38px;
-  border-bottom-color: color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 50%, transparent);
-  border-left-color: color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
-  border-style: dashed;
-  animation: hero-orbit-spin-rev 34s linear infinite;
-}
-
-.m3-hero-orbit--3 {
-  inset: 82px;
-  border-top-color: color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
-  animation: hero-orbit-spin 18s linear infinite;
-}
-
-/* ─── Диагональный световой блик ─── */
-.m3-hero-card::after {
-  content: '';
-  position: absolute;
-  z-index: 2;
-  top: -25%;
-  bottom: -25%;
-  left: -65%;
-  width: 50%;
-  pointer-events: none;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent) 45%,
-    color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 9%, transparent) 58%,
-    transparent 100%
-  );
-  transform: translateX(-30%) skewX(-16deg);
-  opacity: 0;
-  mix-blend-mode: screen;
-  animation: hero-sheen 11s ease-in-out infinite;
-}
-
-/* ─── Улучшения типографики и кнопок поверх живого фона ─── */
-.hero-title {
-  position: relative;
-  z-index: 1;
-  letter-spacing: -0.015em;
-}
-
-.hero-username {
-  display: inline-block;
-  text-shadow: 0 0 28px color-mix(in srgb, var(--md-sys-color-primary) 38%, transparent);
-}
-
-.hero-subtitle {
-  max-width: 520px;
-}
-
-.hero-btn-primary {
-  box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--md-sys-color-primary) 38%, transparent) !important;
-  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.25s ease !important;
-}
-.hero-btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px -6px color-mix(in srgb, var(--md-sys-color-primary) 52%, transparent) !important;
-}
-
-.hero-btn-secondary {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background: color-mix(in srgb, var(--md-sys-color-surface) 38%, transparent) !important;
-  border-color: color-mix(in srgb, var(--md-sys-color-primary) 42%, var(--md-sys-color-outline)) !important;
-  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1), background-color 0.25s ease !important;
-}
-.hero-btn-secondary:hover {
-  transform: translateY(-2px);
-  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent) !important;
-}
-
-/* ─── Кейфреймы ─── */
-@keyframes hero-morph-1 {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
-    border-radius: 42% 58% 60% 40% / 45% 45% 55% 55%;
-  }
-  50% {
-    transform: translate3d(-65px, 45px, 0) scale(1.16) rotate(18deg);
-    border-radius: 58% 42% 45% 55% / 52% 60% 40% 48%;
-  }
-  100% {
-    transform: translate3d(35px, 85px, 0) scale(0.94) rotate(-12deg);
-    border-radius: 48% 52% 64% 36% / 40% 54% 46% 60%;
-  }
-}
-
-@keyframes hero-morph-2 {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-    border-radius: 50% 50% 42% 58% / 55% 45% 55% 45%;
-  }
-  50% {
-    transform: translate3d(75px, -55px, 0) scale(1.14);
-    border-radius: 40% 60% 58% 42% / 44% 56% 44% 56%;
-  }
-  100% {
-    transform: translate3d(-35px, -90px, 0) scale(0.96);
-    border-radius: 62% 38% 46% 54% / 50% 50% 50% 50%;
-  }
-}
-
-@keyframes hero-morph-3 {
-  0%   { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
-  50%  { transform: translate3d(-85px, -40px, 0) scale(1.24) rotate(16deg); }
-  100% { transform: translate3d(55px, -70px, 0) scale(0.9) rotate(-14deg); }
-}
-
-@keyframes hero-morph-4 {
-  0%   { transform: translate3d(0, 0, 0) scale(0.95); }
-  50%  { transform: translate3d(-50px, -35px, 0) scale(1.25); }
-  100% { transform: translate3d(25px, 30px, 0) scale(0.9); }
-}
-
-@keyframes hero-grid-breathe {
-  0%   { opacity: 0.16; transform: scale(1); }
-  100% { opacity: 0.32; transform: scale(1.03); }
-}
-
-@keyframes hero-orbit-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes hero-orbit-spin-rev {
-  from { transform: rotate(360deg); }
-  to   { transform: rotate(0deg); }
-}
-
-@keyframes hero-sheen {
-  0%        { transform: translateX(-30%) skewX(-16deg); opacity: 0; }
-  10%       { opacity: 1; }
-  50%       { transform: translateX(440%) skewX(-16deg); opacity: 1; }
-  58%, 100% { transform: translateX(440%) skewX(-16deg); opacity: 0; }
-}
-
-/* Уважаем системную настройку «меньше анимации» */
-@media (prefers-reduced-motion: reduce) {
-  .m3-hero-blob,
-  .m3-hero-dot-grid,
-  .m3-hero-orbit,
-  .m3-hero-card::after {
-    animation: none !important;
-  }
-  .m3-hero-canvas {
-    display: none;
-  }
-}
-
-/* Лёгкий подъём карточек при наведении (M3 motion) */
 .m3-folder-card,
 .m3-file-card {
-  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s;
+  border-radius: 24px !important;
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-outline-variant, #444) 32%, transparent);
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0, 0, 1),
+    background-color 0.2s cubic-bezier(0.2, 0, 0, 1),
+    border-color 0.25s cubic-bezier(0.2, 0, 0, 1);
 }
+
 .m3-folder-card:hover,
 .m3-file-card:hover {
   transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--md-sys-color-primary) 38%, transparent);
+}
+
+.m3-folder-icon-box {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+}
+
+.m3-empty-state {
+  border-radius: 28px !important;
+  border: 1px dashed color-mix(in srgb, var(--md-sys-color-outline-variant, #444) 60%, transparent);
+}
+
+.m3-empty-icon-wrap {
+  width: 88px;
+  height: 88px;
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+}
+
+.m3-dialog {
+  background: var(--md-sys-color-surface-container-high);
+  border-radius: 28px;
+  padding: 32px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.m3-context-menu {
+  border-radius: 16px !important;
 }
 </style>

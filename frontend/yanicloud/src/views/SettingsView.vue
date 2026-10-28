@@ -181,6 +181,7 @@
         <v-text-field v-model="userForm.username" label="Логин" variant="outlined" :disabled="!!editingUser" class="mb-3"></v-text-field>
         <v-text-field v-model="userForm.password" :label="editingUser ? 'Новый пароль (необязательно)' : 'Пароль'" variant="outlined" :type="showPw ? 'text' : 'password'" :append-inner-icon="showPw ? 'mdi-eye-off-outline' : 'mdi-eye-outline'" @click:append-inner="showPw = !showPw" class="mb-3"></v-text-field>
         <v-text-field v-model="userForm.quotaGb" label="Квота, ГБ (0 — безлимит)" type="number" variant="outlined" class="mb-3"></v-text-field>
+        <v-text-field v-model="userForm.storagePath" label="Путь к диску (пусто = общий)" variant="outlined" class="mb-4"></v-text-field>
         <v-switch v-model="userForm.isAdmin" color="primary" label="Администратор" class="mb-4" hide-details></v-switch>
         <div class="d-flex justify-end gap-4 mt-2">
           <v-btn variant="text" class="text-none" @click="userDialog = false">Отмена</v-btn>
@@ -295,7 +296,7 @@ const userDialog = ref(false)
 const editingUser = ref<AdminUser | null>(null)
 const showPw = ref(false)
 const savingUser = ref(false)
-const userForm = ref({ username: '', password: '', quotaGb: '', isAdmin: false })
+const userForm = ref({ username: '', password: '', quotaGb: '', isAdmin: false, storagePath: '' })
 
 const deleteDialog = ref(false)
 const deleteTarget = ref<AdminUser | null>(null)
@@ -392,14 +393,14 @@ async function saveStorageSettings(): Promise<void> {
 
 function openAddUser(): void {
   editingUser.value = null
-  userForm.value = { username: '', password: '', quotaGb: '', isAdmin: false }
+  userForm.value = { username: '', password: '', quotaGb: '', isAdmin: false, storagePath: '' }
   showPw.value = false
   userDialog.value = true
 }
 
 function openEditUser(user: AdminUser): void {
   editingUser.value = user
-  userForm.value = { username: user.username, password: '', quotaGb: bytesToGb(user.quotaBytes), isAdmin: user.isAdmin }
+  userForm.value = { username: user.username, password: '', quotaGb: bytesToGb(user.quotaBytes), isAdmin: user.isAdmin, storagePath: (user as any).storagePath || '' }
   showPw.value = false
   userDialog.value = true
 }
@@ -412,14 +413,15 @@ async function saveUser(): Promise<void> {
       password: userForm.value.password,
       quotaBytes: gbToBytes(userForm.value.quotaGb),
       isAdmin: userForm.value.isAdmin,
+      storagePath: userForm.value.storagePath
     }
     if (editingUser.value) {
-      const data: any = { quotaBytes: payload.quotaBytes, isAdmin: payload.isAdmin }
+      const data: any = { quotaBytes: payload.quotaBytes, isAdmin: payload.isAdmin, storagePath: payload.storagePath }
       if (payload.password) data.password = payload.password
       await adminUpdateUser(editingUser.value.id, data)
       notify('Пользователь обновлён')
     } else {
-      await adminCreateUser({ username: payload.username, password: payload.password, quotaBytes: payload.quotaBytes, isAdmin: payload.isAdmin })
+      await adminCreateUser(payload)
       notify('Пользователь создан')
     }
     userDialog.value = false

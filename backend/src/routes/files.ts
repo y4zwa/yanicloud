@@ -4,7 +4,7 @@ import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { db, rowToNode, toPublic, getFilesDir, getCacheDir } from '../db.js'
+import { db, rowToNode, toPublic, getFilesDir, getCacheDir, getUserFilesDir } from '../db.js'
 import { requireAuth, fail, userIdOf } from '../auth.js'
 import { classify } from '../filekind.js'
 import { convertToPdf } from '../convert.js'
@@ -189,7 +189,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
         if (part.type !== 'file') continue
         const name = uniqueName(userId, parentId, sanitizeName(part.filename || 'file'))
         const storageKey = randomUUID()
-        const fullPath = path.join(getFilesDir(), storageKey)
+        const fullPath = path.join(getUserFilesDir(userId), storageKey)
         let size = 0
         let quotaExceeded = false
         
@@ -246,7 +246,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     if (!node || node.type !== 'file' || node.deletedAt || !node.storageKey) {
       return fail(reply, 404, 'Файл не найден')
     }
-    const fullPath = path.join(getFilesDir(), node.storageKey)
+    const fullPath = path.join(getUserFilesDir(userId), node.storageKey)
     if (!fs.existsSync(fullPath)) return fail(reply, 404, 'Файл не найден')
 
     const { kind, mime } = classify(node.name, node.mimeType)
@@ -296,7 +296,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     if (kind !== 'image' && kind !== 'video' && kind !== 'audio') {
       return fail(reply, 415, 'Миниатюра недоступна')
     }
-    const fullPath = path.join(getFilesDir(), node.storageKey)
+    const fullPath = path.join(getUserFilesDir(userId), node.storageKey)
     if (!fs.existsSync(fullPath)) return fail(reply, 404, 'Файл не найден')
 
     const thumbPath = path.join(getCacheDir(), `${node.id}.${node.updatedAt}.thumb.jpg`)
@@ -335,7 +335,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     if (!node || node.type !== 'file' || node.deletedAt || !node.storageKey) {
       return fail(reply, 404, 'Файл не найден')
     }
-    const fullPath = path.join(getFilesDir(), node.storageKey)
+    const fullPath = path.join(getUserFilesDir(userId), node.storageKey)
     if (!fs.existsSync(fullPath)) return fail(reply, 404, 'Файл не найден')
 
     reply.header('Content-Type', node.mimeType || 'application/octet-stream')

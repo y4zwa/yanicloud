@@ -121,7 +121,6 @@ export function permanentDelete(userId: number, id: string): void {
   }
   
   if (ids.length) {
-    // Используем транзакцию вместо передачи тысяч аргументов в .run()
     const deleteStmt = db.prepare('DELETE FROM nodes WHERE id = ?')
     const deleteTx = db.transaction((items: string[]) => {
       for (const itemId of items) deleteStmt.run(itemId)

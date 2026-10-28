@@ -6,7 +6,7 @@
       </div>
       <h1 class="auth-title">YaniCloud</h1>
       <p class="auth-subtitle">
-        {{ mode === 'login' ? 'С возвращением! Войдите в аккаунт.' : 'Создайте аккаунт, чтобы начать.' }}
+        {{ mode === 'login' ? 'С возвращением! Войдите в аккаунт.' }}
       </p>
 
       <v-form @submit.prevent="submit">
@@ -68,36 +68,25 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { register, login, ApiError } from '@/api'
+import { login, ApiError } from '@/api'
 import { setUser } from '@/store/auth'
 
 const emit = defineEmits<{ (e: 'authed'): void }>()
 
-const mode = ref<'login' | 'register'>('login')
 const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
 
-const rules = {
-  required: (v: string) => !!v || 'Обязательное поле',
-}
-
-function toggleMode(): void {
-  mode.value = mode.value === 'login' ? 'register' : 'login'
-  error.value = ''
-}
+const rules = { required: (v: string) => !!v || 'Обязательное поле' }
 
 async function submit(): Promise<void> {
   if (!username.value || !password.value) return
   loading.value = true
   error.value = ''
   try {
-    const res =
-      mode.value === 'login'
-        ? await login(username.value.trim(), password.value)
-        : await register(username.value.trim(), password.value)
+    const res = await login(username.value.trim(), password.value)
     setUser(res.user)
     emit('authed')
   } catch (e) {

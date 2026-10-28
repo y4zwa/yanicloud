@@ -1,5 +1,4 @@
-import fs, { promises as fsp } from 'node:fs'
-import { getUserFilesDir } from '../db.js'
+import fs from 'node:fs'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import { db, getSetting, setSetting, getFilesDir, getDefaultQuota } from '../db.js'
@@ -8,88 +7,45 @@ import { requireAdmin, fail, userIdOf } from '../auth.js'
 import { hashPassword } from '../password.js'
 import { deleteUserFiles } from '../nodes.js'
 import { diskInfo } from '../disk.js'
+import {
+  startUserMigration,
+  getMigrationJob,
+  isMigrationActive,
+  forgetMigrationJob,
+  serializeMigration,
+  moveStorageRoot,
+  type MigrationJob,
+} from './migrations.js'   
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
 
-async function getDirSize(dir: string): Promise<number> {
-  let size = 0
-  const stack = [dir]
-  
-  while (stack.length > 0) {
-    const current = stack.pop()!
-    try {
-      const entries = await fsp.readdir(current, { withFileTypes: true })
-      for (const entry of entries) {
-        const fullPath = path.join(current, entry.name)
-        if (entry.isDirectory()) {
-          stack.push(fullPath)
-        } else if (entry.isFile()) {
-          try {
-            const stats = await fsp.stat(fullPath)
-            size += stats.size
-          } catch {
-          }
-        }
-      }
-    } catch {
-    }
+function serializeUser(r: any) {
+  return {
+    id: r.id,
+    username: r.username,
+    isAdmin: r.is_admin === 1,
+    quotaBytes: r.quota_bytes,
+    storagePath: r.storage_path,
   }
-  return size
-}
-
-async function migrateUserFiles(userId: number, oldDir: string, newDir: string): Promise<void> {
-  if (oldDir === newDir) return
-  
-  if (!fs.existsSync(oldDir)) {
-    return 
-  }
-
-  const size = await getDirSize(oldDir)
-  const targetDisk = diskInfo(path.dirname(newDir))
-  
-  if (targetDisk.free < size * 1.1) {
-    const requiredMB = Math.ceil(size / 1024 / 1024)
-    const freeMB = Math.ceil(targetDisk.free / 1024 / 1024)
-    throw new Error(`Недостаточно места на целевом диске. Требуется ~${requiredMB} МБ, свободно ${freeMB} МБ.`)
-  }
-
-  await fsp.mkdir(newDir, { recursive: true })
-
-  await fsp.cp(oldDir, newDir, {
-    recursive: true,
-    force: true,
-    filter: (src) => {
-      try {
-        if (fs.statSync(src).isDirectory()) return true;
-        const relative = path.relative(oldDir, src)
-        const dest = path.join(newDir, relative)
-        return !fs.existsSync(dest)
-      } catch {
-        return true;
-      }
-    }
-  })
-  await fsp.rm(oldDir, { recursive: true, force: true })
 }
 
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
+  // ---------- пользователи ----------
+
   app.get('/api/admin/users', { preHandler: requireAdmin }, async () => {
     const rows = db
       .prepare(
         `SELECT u.id, u.username, u.storage_path, u.is_admin, u.quota_bytes, u.created_at,
           (SELECT COALESCE(SUM(size), 0) FROM nodes n WHERE n.user_id = u.id AND n.type = 'file' AND n.deleted_at IS NULL) AS used
-         FROM users u ORDER BY u.id ASC`
+         FROM users u ORDER BY u.id ASC`,
       )
       .all() as any[]
     return {
       users: rows.map((r) => ({
-        id: r.id,
-        username: r.username,
-        isAdmin: r.is_admin === 1,
-        quotaBytes: r.quota_bytes,
-        storagePath: r.storage_path,
+        ...serializeUser(r),
         used: r.used,
         createdAt: r.created_at,
+        migration: serializeMigration(getMigrationJob(r.id)),
       })),
     }
   })
@@ -113,18 +69,23 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       if (Number.isNaN(quota) || quota < 0) return fail(reply, 400, 'Некорректная квота')
     }
     const isAdmin = body?.isAdmin === true || body?.isAdmin === 1 ? 1 : 0
-    const storagePath = body?.storagePath && String(body.storagePath).trim() !== '' ? String(body.storagePath).trim() : null
+    const storagePath =
+      body?.storagePath && String(body.storagePath).trim() !== '' ? String(body.storagePath).trim() : null
     const now = Date.now()
     const info = db
-      .prepare('INSERT INTO users (username, password_hash, quota_bytes, is_admin, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .prepare(
+        'INSERT INTO users (username, password_hash, quota_bytes, is_admin, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      )
       .run(username, hashPassword(password), quota, isAdmin, storagePath, now)
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid) as any
-    return { user: { id: row.id, username: row.username, isAdmin: row.is_admin === 1, quotaBytes: row.quota_bytes, storagePath: row.storage_path } }
+    return { user: serializeUser(row) }
   })
 
   app.patch('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const id = Number((req.params as any).id)
     const body = req.body as any
+    const row = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
+    if (!row) return fail(reply, 404, 'Пользователь не найден')
 
     const updates: string[] = []
     const params: any[] = []
@@ -141,47 +102,43 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       params.push(body.isAdmin === true || body.isAdmin === 1 ? 1 : 0)
     }
 
-    if (body?.storagePath !== undefined) {
-      const sp = body.storagePath === null ? null : String(body.storagePath).trim()
-      updates.push('storage_path = ?')
-      params.push(sp === '' ? null : sp)
-    }
-
     if (body?.password !== undefined && body?.password !== null && body?.password !== '') {
       const password = String(body.password)
-      if (password.length < 6) return fail(reply, 400, 'Пароль должен быть от 6 символов')
+      if (password.length < 6 || password.length > 128) {
+        return fail(reply, 400, 'Пароль должен быть от 6 до 128 символов')
+      }
       updates.push('password_hash = ?')
       params.push(hashPassword(password))
     }
-
-    const oldDir = getUserFilesDir(id)
 
     if (updates.length > 0) {
       params.push(id)
       db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     }
 
-    const newDir = getUserFilesDir(id)
 
-    if (oldDir !== newDir) {
-      try {
-        await migrateUserFiles(id, oldDir, newDir)
-      } catch (err: any) {
-        console.error(`[MIGRATION FAIL] User ${id}:`, err)
-        return fail(reply, 500, `Ошибка при переносе файлов: ${err.message}`)
+    let migration: MigrationJob | null = null
+    if (body?.storagePath !== undefined) {
+      const targetPath = body.storagePath === null ? null : String(body.storagePath).trim() || null
+      if (targetPath !== (row.storage_path ?? null)) {
+        if (isMigrationActive(id)) {
+          return fail(reply, 409, 'Для этого пользователя уже выполняется миграция, дождитесь завершения')
+        }
+        try {
+          migration = await startUserMigration(id, targetPath)
+        } catch (err: any) {
+          return fail(reply, 400, err?.message ?? 'Не удалось запустить миграцию')
+        }
       }
     }
 
     const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
-    return {
-      user: {
-        id: updated.id,
-        username: updated.username,
-        isAdmin: updated.is_admin === 1,
-        quotaBytes: updated.quota_bytes,
-        storagePath: updated.storage_path,
-      },
-    }
+    return { user: serializeUser(updated), migration: serializeMigration(migration) }
+  })
+
+  app.get('/api/admin/users/:id/migration', { preHandler: requireAdmin }, async (req) => {
+    const id = Number((req.params as any).id)
+    return { migration: serializeMigration(getMigrationJob(id)) }
   })
 
   app.delete('/api/admin/users/:id', { preHandler: requireAdmin }, async (req, reply) => {
@@ -189,10 +146,16 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (id === userIdOf(req)) return fail(reply, 400, 'Нельзя удалить собственный аккаунт')
     const row = db.prepare('SELECT id FROM users WHERE id = ?').get(id) as any
     if (!row) return fail(reply, 404, 'Пользователь не найден')
+    if (isMigrationActive(id)) {
+      return fail(reply, 409, 'Нельзя удалять пользователя, пока идёт перенос его файлов')
+    }
     deleteUserFiles(id)
+    forgetMigrationJob(id)
     db.prepare('DELETE FROM users WHERE id = ?').run(id)
     return { ok: true }
   })
+
+  // ---------- диски ----------
 
   app.get('/api/admin/disks', { preHandler: requireAdmin }, async () => {
     const currentDir = path.resolve(getFilesDir())
@@ -268,14 +231,15 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
     const disks: any[] = []
     for (const [dev, g] of byDev) {
+      const sorted = g.paths.slice().sort((a, b) => a.length - b.length)
       let rep: string
       if (dev === currentDev) {
         const prefix = g.paths
           .filter((p) => currentDir === p || currentDir.startsWith(p + '/'))
           .sort((a, b) => b.length - a.length)[0]
-        rep = prefix ?? g.paths.slice().sort((a, b) => a.length - b.length)[0]
+        rep = prefix ?? sorted[0]
       } else {
-        rep = g.paths.slice().sort((a, b) => a.length - b.length)[0]
+        rep = sorted[0]
       }
       disks.push({
         device: deviceNameByDev.get(dev) ?? null,
@@ -289,7 +253,9 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     return { disks }
   })
 
-  app.get('/api/admin/settings', { preHandler: requireAdmin }, async () => {
+  // ---------- настройки ----------
+
+  function currentSettings() {
     const disk = diskInfo(getFilesDir())
     const stored = getSetting('storage_dir')
     return {
@@ -300,7 +266,9 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       diskFree: disk.free,
       userCount: (db.prepare('SELECT COUNT(*) AS c FROM users').get() as any).c,
     }
-  })
+  }
+
+  app.get('/api/admin/settings', { preHandler: requireAdmin }, async () => currentSettings())
 
   app.put('/api/admin/settings', { preHandler: requireAdmin }, async (req, reply) => {
     const body = req.body as any
@@ -314,36 +282,16 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (body.storageDir !== undefined && body.storageDir !== null && String(body.storageDir).trim() !== '') {
       const newDir = path.resolve(String(body.storageDir).trim())
       const oldDir = path.resolve(getFilesDir())
-      
       if (newDir !== oldDir) {
         try {
-          await fsp.mkdir(newDir, { recursive: true })
-          if (fs.existsSync(oldDir)) {
-            const files = await fsp.readdir(oldDir)
-            for (const f of files) {
-              const from = path.join(oldDir, f)
-              const to = path.join(newDir, f)
-              if (fs.existsSync(to)) continue
-              await fsp.cp(from, to, { recursive: true, force: true })
-              await fsp.rm(from, { recursive: true, force: true })
-            }
-          }
-        } catch (e: any) {
-          return fail(reply, 400, `Не удалось использовать директорию: ${e.message}`)
+          await moveStorageRoot(oldDir, newDir)
+          setSetting('storage_dir', newDir)
+        } catch (err: any) {
+          return fail(reply, 400, `Не удалось перенести хранилище: ${err.message}`)
         }
       }
-      setSetting('storage_dir', newDir)
     }
 
-    const disk = diskInfo(getFilesDir())
-    const stored = getSetting('storage_dir')
-    return {
-      defaultQuota: getDefaultQuota(),
-      storageDir: stored && stored.trim() ? stored.trim() : filesDir,
-      trashRetentionDays: config.trashRetentionDays,
-      diskTotal: disk.total,
-      diskFree: disk.free,
-      userCount: (db.prepare('SELECT COUNT(*) AS c FROM users').get() as any).c,
-    }
+    return currentSettings()
   })
 }

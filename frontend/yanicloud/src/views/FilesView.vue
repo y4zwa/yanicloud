@@ -20,6 +20,7 @@
       <div class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center">
         <div class="m3-hero-blob m3-hero-blob--1"></div>
         <div class="m3-hero-blob m3-hero-blob--2"></div>
+        <div class="m3-hero-blob m3-hero-blob--3"></div>
         <h1 class="text-h3 font-weight-medium mb-4 text-on-surface hero-title" style="line-height: 1.2;">
           {{ greeting }}, <br /><span class="text-primary">{{ currentUser?.username || 'друг' }}</span>
         </h1>
@@ -68,25 +69,25 @@
     <!-- ВИДЖЕТЫ (только корень) -->
     <div v-if="isRoot" class="m3-widgets-row d-flex gap-6 mb-12">
       <!-- Хранилище: информационный виджет, считаем по диску, где реально лежат файлы. Без нажатий. -->
-      <div class="m3-card m3-widget-card m3-widget-card--static d-flex align-center px-8 py-6 flex-grow-1">
-        <div class="m3-progress-wrapper mr-8">
+      <div class="m3-card m3-widget-card m3-widget-card--static d-flex align-center px-6 py-4 flex-grow-1">
+        <div class="m3-progress-wrapper mr-6">
           <v-progress-circular
             :model-value="storagePercent"
             color="primary"
-            size="88"
-            width="9"
-            class="font-weight-medium text-title-medium"
+            size="64"
+            width="7"
+            class="font-weight-medium text-body-2"
           >
             {{ storagePercentLabel }}
           </v-progress-circular>
         </div>
         <div class="min-width-0 flex-grow-1">
-          <div class="text-title-medium text-on-surface-variant mb-2">Занято хранилища</div>
-          <div class="text-h5 font-weight-medium text-on-surface text-truncate">
+          <div class="text-body-2 text-on-surface-variant mb-1">Занято хранилища</div>
+          <div class="text-title-large font-weight-medium text-on-surface text-truncate">
             {{ storageLabel }}
           </div>
-          <div class="d-flex align-center mt-3" style="gap: 8px">
-            <v-icon icon="mdi-harddisk" size="18" color="on-surface-variant"></v-icon>
+          <div class="d-flex align-center mt-2" style="gap: 6px">
+            <v-icon icon="mdi-harddisk" size="16" color="on-surface-variant"></v-icon>
             <span class="text-body-2 text-on-surface-variant">
               Свободно на диске: {{ formatBytes(storage.diskFree) }} из {{ formatBytes(storage.diskTotal) }}
             </span>
@@ -95,16 +96,16 @@
         </div>
       </div>
       <!-- Избранное: кликабельное -->
-      <div class="m3-card m3-widget-card d-flex align-center px-8 py-6 flex-grow-1" v-ripple @click="$emit('goto-favorites')">
-        <div class="m3-icon-avatar primary-container mr-8">
-          <v-icon icon="mdi-star" color="on-primary-container" size="40"></v-icon>
+      <div class="m3-card m3-widget-card d-flex align-center px-6 py-4 flex-grow-1" v-ripple @click="$emit('goto-favorites')">
+        <div class="m3-icon-avatar primary-container m3-widget-avatar mr-6">
+          <v-icon icon="mdi-star" color="on-primary-container" size="30"></v-icon>
         </div>
-        <div>
-          <div class="text-h5 font-weight-medium text-on-surface mb-2">Избранное</div>
-          <div class="text-title-medium text-on-surface-variant">{{ favoritesCount }} элементов</div>
+        <div class="min-width-0">
+          <div class="text-title-large font-weight-medium text-on-surface mb-1">Избранное</div>
+          <div class="text-body-2 text-on-surface-variant">{{ favoritesCount }} элементов</div>
         </div>
         <v-spacer></v-spacer>
-        <v-btn icon="mdi-chevron-right" variant="text" color="on-surface-variant" size="large"></v-btn>
+        <v-btn icon="mdi-chevron-right" variant="text" color="on-surface-variant"></v-btn>
       </div>
     </div>
 
@@ -349,7 +350,7 @@
       </div>
     </v-dialog>
 
-    
+    <!-- УВЕДОМЛЕНИЯ -->
     <v-snackbar v-model="snackbar" :color="snackColor" timeout="3000" rounded="pill">
       {{ snackText }}
     </v-snackbar>
@@ -447,7 +448,7 @@ const greeting = computed(() => {
   return 'Добрый вечер'
 })
 
-
+// путь, где реально лежат файлы пользователя (приходит из /api/storage после правки бэкенда)
 const storageDir = computed(() => ((storage.value as any).dir as string | undefined) ?? '')
 
 const storagePercent = computed(() => {
@@ -666,7 +667,7 @@ onMounted(() => {
   border: 1px solid var(--md-sys-color-outline-variant);
 }
 
-
+/* Виджет хранилища — чисто информационный: без курсора-руки и реакции на наведение */
 .m3-widget-card--static {
   cursor: default;
 }
@@ -674,36 +675,121 @@ onMounted(() => {
   background-color: var(--md-sys-color-surface-container) !important;
 }
 
+/* Уменьшенная аватарка в плитке избранного */
+.m3-widget-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
 
+/* ─── ЖИВОЙ ФОН ХИРО-КАРТОЧКИ ─────────────────────────────────
+   Три светящихся пятна медленно дрейфуют и «дышат» (масштаб/смещение),
+   поверх периодически проплывает световой блик. Все цвета берутся
+   из акцентных M3-переменных, поэтому смена акцента в настройках
+   мгновенно меняет и подсветку. */
 .m3-hero-card {
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+}
+/* весь контент карточки — над фоном */
+.m3-hero-card > :not(.m3-hero-blob) {
+  position: relative;
+  z-index: 1;
 }
 .m3-hero-blob {
   position: absolute;
+  z-index: 0;
   border-radius: 50%;
   pointer-events: none;
+  filter: blur(46px);
+  will-change: transform;
 }
 .m3-hero-blob--1 {
-  width: 280px;
-  height: 280px;
-  top: -90px;
-  right: -70px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-primary) 24%, transparent) 0%, transparent 70%);
+  width: 340px;
+  height: 340px;
+  top: -110px;
+  right: -80px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-primary) 32%, transparent) 0%, transparent 70%);
+  animation: hero-float-a 14s ease-in-out infinite alternate;
 }
 .m3-hero-blob--2 {
-  width: 220px;
-  height: 220px;
-  bottom: -80px;
-  left: -60px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 18%, transparent) 0%, transparent 70%);
+  width: 300px;
+  height: 300px;
+  bottom: -100px;
+  left: -70px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 26%, transparent) 0%, transparent 70%);
+  animation: hero-float-b 19s ease-in-out infinite alternate;
 }
+.m3-hero-blob--3 {
+  width: 280px;
+  height: 280px;
+  top: 42%;
+  left: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--md-sys-color-secondary, var(--md-sys-color-primary)) 22%, transparent) 0%, transparent 70%);
+  animation: hero-float-c 24s ease-in-out infinite alternate;
+}
+
+/* Световой блик, плавно проплывающий по карточке (только transform/opacity — GPU) */
+.m3-hero-card::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: -20%;
+  bottom: -20%;
+  left: -60%;
+  width: 55%;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent) 45%,
+    color-mix(in srgb, var(--md-sys-color-tertiary, var(--md-sys-color-primary)) 10%, transparent) 60%,
+    transparent 100%
+  );
+  transform: translateX(-30%) skewX(-14deg);
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: hero-sheen 9s ease-in-out infinite;
+}
+
+@keyframes hero-float-a {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(-70px, 50px) scale(1.18); }
+  100% { transform: translate(40px, 90px) scale(0.92); }
+}
+@keyframes hero-float-b {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(80px, -60px) scale(1.12); }
+  100% { transform: translate(-40px, -100px) scale(0.95); }
+}
+@keyframes hero-float-c {
+  0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50%  { transform: translate(-90px, -45px) scale(1.22) rotate(14deg); }
+  100% { transform: translate(60px, -80px) scale(0.9) rotate(-12deg); }
+}
+@keyframes hero-sheen {
+  0%   { transform: translateX(-30%) skewX(-14deg); opacity: 0; }
+  12%  { opacity: 1; }
+  55%  { transform: translateX(430%) skewX(-14deg); opacity: 1; }
+  62%, 100% { transform: translateX(430%) skewX(-14deg); opacity: 0; }
+}
+
+/* Уважаем системную настройку «меньше анимации» */
+@media (prefers-reduced-motion: reduce) {
+  .m3-hero-blob,
+  .m3-hero-card::after {
+    animation: none;
+  }
+}
+
 .hero-title {
   position: relative;
   z-index: 1;
 }
 
-
+/* Строка с диском в виджете хранилища */
 .storage-dir {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -711,7 +797,7 @@ onMounted(() => {
   opacity: 0.75;
 }
 
-
+/* Лёгкий подъём карточек при наведении (M3 motion) */
 .m3-folder-card,
 .m3-file-card {
   transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s;

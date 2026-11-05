@@ -66,6 +66,17 @@
     <div v-if="isAdmin" class="m3-card pa-8 mb-8">
       <h2 class="text-h5 font-weight-medium text-on-surface mb-6">Хранилище</h2>
 
+      <v-alert
+        v-if="!settings.storageAvailable"
+        type="warning"
+        variant="tonal"
+        class="mb-6"
+        icon="mdi-harddisk-remove"
+      >
+        Диск с хранилищем недоступен. Файлы нельзя открыть или загрузить, пока диск не подключён.
+        Проверьте подключение диска на сервере.
+      </v-alert>
+
       <div class="mb-6">
         <div class="d-flex align-center justify-space-between mb-2">
           <span class="text-title-medium text-on-surface-variant">Диск</span>
@@ -365,8 +376,8 @@ async function removeBanner(): Promise<void> {
 
 const users = ref<AdminUser[]>([])
 const loadingUsers = ref(false)
-const settings = ref<AdminSettings>({ defaultQuota: 0, storageDir: '', trashRetentionDays: 30, diskTotal: 0, diskFree: 0, userCount: 0 })
-const ownStorage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
+const settings = ref<AdminSettings>({ defaultQuota: 0, storageDir: '', storageAvailable: true, trashRetentionDays: 30, diskTotal: 0, diskFree: 0, userCount: 0 })
+const ownStorage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, available: true, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
 const disks = ref<AdminDisk[]>([])
 const loadingDisks = ref(false)
 const usingDisk = ref('')
@@ -519,7 +530,7 @@ function schedulePoll(): void {
       .map((m) => m.userId)
     for (const id of activeIds) {
       try {
-        const { migration } = await adminGetUserMigration(id)
+        const migration = await adminGetUserMigration(id)
         if (migration) {
           sampleSpeed(migration)
           applyMigration(migration)
@@ -553,7 +564,7 @@ async function load(): Promise<void> {
   try {
     ownStorage.value = await getStorage()
   } catch {
-    /* ignore */
+    ownStorage.value = { ...ownStorage.value, available: false, diskTotal: 0, diskFree: 0 }
   }
   if (!isAdmin.value) return
   loadingUsers.value = true

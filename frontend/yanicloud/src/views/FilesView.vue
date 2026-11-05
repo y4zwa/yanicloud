@@ -86,6 +86,16 @@
         :style="bannerUrl ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
       ></div>
     </div>
+    <v-alert
+      v-if="isRoot && !storage.available"
+      type="warning"
+      variant="tonal"
+      class="mb-6"
+      icon="mdi-harddisk-remove"
+    >
+      Хранилище недоступно: диск с данными не подключён или не отвечает. Список файлов показан из базы,
+      но открыть, скачать или загрузить файлы не получится, пока диск не вернётся в строй.
+    </v-alert>
     <!-- ВИДЖЕТЫ (только корень) -->
     <div v-if="isRoot" class="m3-widgets-row d-flex gap-6 mb-12">
       <!-- Хранилище: статичный информационный виджет -->
@@ -112,10 +122,15 @@
             {{ storageLabel }}
           </div>
           <div class="d-flex align-center mt-1" style="gap: 6px">
-            <v-icon icon="mdi-harddisk" size="16" color="on-surface-variant"></v-icon>
-            <span class="text-body-2 text-on-surface-variant text-truncate">
+            <v-icon
+              :icon="storage.available ? 'mdi-harddisk' : 'mdi-harddisk-remove'"
+              size="16"
+              :color="storage.available ? 'on-surface-variant' : 'warning'"
+            ></v-icon>
+            <span v-if="storage.available" class="text-body-2 text-on-surface-variant text-truncate">
               Свободно на диске: {{ formatBytes(storage.diskFree) }} из {{ formatBytes(storage.diskTotal) }}
             </span>
+            <span v-else class="text-body-2 text-warning text-truncate">Диск не подключён</span>
           </div>
         </div>
       </div>
@@ -470,7 +485,7 @@ const stack = ref<{ id: string | null; name: string }[]>([{ id: null, name: 'Г�
 const items = ref<NodeItem[]>([])
 const recent = ref<NodeItem[]>([])
 const favoritesCount = ref(0)
-const storage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
+const storage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, available: true, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
 const bannerUrl = ref<string | null>(null)
 const loading = ref(true)
 const error = ref('')
@@ -816,10 +831,15 @@ async function load(): Promise<void> {
   try {
     items.value = await listFiles(currentFolderId.value)
     if (isRoot.value) {
-      const [favs, rec, st] = await Promise.all([listFavorites(), listRecent(), getStorage()])
-      favoritesCount.value = favs.length
-      recent.value = rec
-      storage.value = st
+      // Статистика хранилища не должна ломать список файлов, если диск отключён
+      const [favs, rec, st] = await Promise.allSettled([listFavorites(), listRecent(), getStorage()])
+      if (favs.status === 'fulfilled') favoritesCount.value = favs.value.length
+      if (rec.status === 'fulfilled') recent.value = rec.value
+      if (st.status === 'fulfilled') {
+        storage.value = st.value
+      } else {
+        storage.value = { ...storage.value, available: false, diskTotal: 0, diskFree: 0 }
+      }
       getBannerUrl()
         .then((u) => (bannerUrl.value = u))
         .catch(() => undefined)

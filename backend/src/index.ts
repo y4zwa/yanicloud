@@ -5,7 +5,7 @@ import jwt from '@fastify/jwt'
 import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
 import { config } from './config.js'
-import { jwtSecret } from './db.js'
+import { isStorageError, jwtSecret } from './db.js'
 import { authRoutes } from './routes/auth.js'
 import { filesRoutes } from './routes/files.js'
 import { storageRoutes } from './routes/storage.js'
@@ -42,6 +42,24 @@ export function buildApp() {
     if (req.method === 'OPTIONS') {
       reply.code(204).send()
     }
+  })
+
+  app.setErrorHandler((err, req, reply) => {
+    if (isStorageError(err)) {
+      req.log.warn({ err }, 'storage unavailable')
+      return reply.code(503).send({
+        error: 'Хранилище недоступно. Проверьте, подключён ли диск с данными на сервере.',
+        code: 'STORAGE_UNAVAILABLE',
+      })
+    }
+
+    const statusCode = (err as any)?.statusCode
+    if (statusCode && statusCode >= 400 && statusCode < 500) {
+      return reply.code(statusCode).send({ error: (err as any).message || 'Ошибка запроса' })
+    }
+
+    req.log.error({ err }, 'request failed')
+    return reply.code(500).send({ error: 'Внутренняя ошибка сервера' })
   })
 
   app.register(jwt, { secret: jwtSecret })

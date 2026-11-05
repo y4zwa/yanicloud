@@ -103,11 +103,57 @@ export function setSetting(key: string, value: string): void {
   ).run(key, value)
 }
 
-export function getFilesDir(): string {
+export class StorageUnavailableError extends Error {
+  readonly code = 'STORAGE_UNAVAILABLE'
+  readonly statusCode = 503
+  readonly expose = true
+  readonly path: string
+
+  constructor(dir: string, cause?: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause ?? '')
+    super(reason ? `Хранилище недоступно: ${dir} (${reason})` : `Хранилище недоступно: ${dir}`)
+    this.name = 'StorageUnavailableError'
+    this.path = dir
+  }
+}
+
+const STORAGE_ERROR_CODES = new Set([
+  'EIO',
+  'ENODEV',
+  'ENXIO',
+  'EROFS',
+  'ESTALE',
+  'ETIMEDOUT',
+  'EDQUOT',
+  'EACCES',
+  'EPERM',
+  'ENOTDIR',
+])
+
+export function isStorageError(err: unknown): boolean {
+  if (err instanceof StorageUnavailableError) return true
+  const code = (err as any)?.code
+  return typeof code === 'string' && STORAGE_ERROR_CODES.has(code)
+}
+
+/** Проверяет, что каталог существует и доступен для записи, и создаёт его при необходимости. */
+export function ensureStorageDir(dir: string): string {
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+    return dir
+  } catch (err) {
+    throw new StorageUnavailableError(dir, err)
+  }
+}
+
+/** Настроенный каталог хранилища без проверки доступности. Безопасен для чтения настроек. */
+export function resolveFilesDir(): string {
   const s = getSetting('storage_dir')
-  const dir = s && s.trim() ? s.trim() : filesDir
-  fs.mkdirSync(dir, { recursive: true })
-  return dir
+  return s && s.trim() ? s.trim() : filesDir
+}
+
+export function getFilesDir(): string {
+  return ensureStorageDir(resolveFilesDir())
 }
 
 export function getDefaultQuota(): number {
@@ -143,13 +189,15 @@ export function rowToNode(row: any): any {
   }
 }
 
-export function getUserFilesDir(userId: number): string {
+/** Каталог файлов пользователя без проверки доступности. */
+export function resolveUserFilesDir(userId: number): string {
   const row = db.prepare('SELECT storage_path FROM users WHERE id = ?').get(userId) as any
-  if (row && row.storage_path && row.storage_path.trim() !== '') {
-    fs.mkdirSync(row.storage_path, { recursive: true })
-    return row.storage_path
-  }
-  return getFilesDir() // Фоллбэк на дефолтную общую папку
+  const own = typeof row?.storage_path === 'string' ? row.storage_path.trim() : ''
+  return own || resolveFilesDir()
+}
+
+export function getUserFilesDir(userId: number): string {
+  return ensureStorageDir(resolveUserFilesDir(userId))
 }
 
 export function toPublic(node: any): any {
@@ -159,6 +207,5 @@ export function toPublic(node: any): any {
 }
 
 export function getCacheDir(): string {
-  fs.mkdirSync(cacheDir, { recursive: true })
-  return cacheDir
+  return ensureStorageDir(cacheDir)
 }

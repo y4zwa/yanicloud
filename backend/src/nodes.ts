@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { db, rowToNode, getFilesDir } from './db.js'
+import { db, rowToNode, resolveUserFilesDir } from './db.js'
 import type { Node } from './types.js'
 
 export function getNode(userId: number, id: string): Node | null {
@@ -111,7 +111,9 @@ export function permanentDelete(userId: number, id: string): void {
   ).all(id, userId) as any[]
 
   const ids: string[] = []
-  const dir = getFilesDir()
+  // Файлы пользователя могут лежать в его собственном каталоге (storage_path),
+  // а не в глобальном storage_dir — удалять нужно именно оттуда.
+  const dir = resolveUserFilesDir(userId)
   
   for (const r of rows) {
     ids.push(r.id)
@@ -132,17 +134,25 @@ export function permanentDelete(userId: number, id: string): void {
 export function purgeTrash(retentionDays: number): number {
   const cutoff = Date.now() - retentionDays * 86400000
   const rows = db.prepare('SELECT id, user_id FROM nodes WHERE deleted_at IS NOT NULL AND deleted_at < ?').all(cutoff) as any[]
+  let purged = 0
   for (const r of rows) {
-    permanentDelete(r.user_id, r.id)
+    try {
+      permanentDelete(r.user_id, r.id)
+      purged++
+    } catch (err) {
+      // Диск может быть временно недоступен — не теряем остальные элементы
+      // и не удаляем записи из БД, пока файлы не удалены с диска.
+      console.error(`[trash] не удалось удалить ${r.id}:`, err)
+    }
   }
-  return rows.length
+  return purged
 }
 
 export function deleteUserFiles(userId: number): void {
   const rows = db.prepare(
     "SELECT storage_key FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL"
   ).all(userId) as any[]
-  const dir = getFilesDir()
+  const dir = resolveUserFilesDir(userId)
   for (const r of rows) {
     if (r.storage_key) fs.rmSync(path.join(dir, r.storage_key), { force: true })
   }

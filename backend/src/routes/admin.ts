@@ -1,8 +1,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
-import { db, getSetting, setSetting, getFilesDir, getDefaultQuota } from '../db.js'
-import { config, filesDir } from '../config.js'
+import {
+  db,
+  setSetting,
+  resolveFilesDir,
+  ensureStorageDir,
+  getDefaultQuota,
+  isStorageError,
+} from '../db.js'
+import { config } from '../config.js'
 import { requireAdmin, fail, userIdOf } from '../auth.js'
 import { hashPassword } from '../password.js'
 import { deleteUserFiles } from '../nodes.js'
@@ -127,6 +134,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         try {
           migration = await startUserMigration(id, targetPath)
         } catch (err: any) {
+          if (isStorageError(err)) throw err
           return fail(reply, 400, err?.message ?? 'Не удалось запустить миграцию')
         }
       }
@@ -158,7 +166,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // ---------- диски ----------
 
   app.get('/api/admin/disks', { preHandler: requireAdmin }, async () => {
-    const currentDir = path.resolve(getFilesDir())
+    const currentDir = path.resolve(resolveFilesDir())
     let currentDev = -1
     try {
       currentDev = fs.statSync(currentDir).dev
@@ -256,11 +264,20 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // ---------- настройки ----------
 
   function currentSettings() {
-    const disk = diskInfo(getFilesDir())
-    const stored = getSetting('storage_dir')
+    const storageDir = resolveFilesDir()
+    let storageAvailable = true
+    let disk = { total: 0, free: 0 }
+    try {
+      ensureStorageDir(storageDir)
+      disk = diskInfo(storageDir)
+    } catch (err) {
+      if (!isStorageError(err)) throw err
+      storageAvailable = false
+    }
     return {
       defaultQuota: getDefaultQuota(),
-      storageDir: stored && stored.trim() ? stored.trim() : filesDir,
+      storageDir,
+      storageAvailable,
       trashRetentionDays: config.trashRetentionDays,
       diskTotal: disk.total,
       diskFree: disk.free,
@@ -281,12 +298,13 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
 
     if (body.storageDir !== undefined && body.storageDir !== null && String(body.storageDir).trim() !== '') {
       const newDir = path.resolve(String(body.storageDir).trim())
-      const oldDir = path.resolve(getFilesDir())
+      const oldDir = path.resolve(resolveFilesDir())
       if (newDir !== oldDir) {
         try {
           await moveStorageRoot(oldDir, newDir)
           setSetting('storage_dir', newDir)
         } catch (err: any) {
+          if (isStorageError(err)) throw err
           return fail(reply, 400, `Не удалось перенести хранилище: ${err.message}`)
         }
       }

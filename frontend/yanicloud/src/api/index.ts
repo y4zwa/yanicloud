@@ -20,6 +20,7 @@ export interface AdminUser {
 export interface AdminSettings {
   defaultQuota: number
   storageDir: string
+  storageAvailable: boolean
   trashRetentionDays: number
   diskTotal: number
   diskFree: number
@@ -67,6 +68,8 @@ export interface StorageInfo {
   used: number
   quota: number
   percent: number
+  dir?: string
+  available: boolean
   diskTotal: number
   diskFree: number
   reservedByOthers: number
@@ -114,7 +117,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
     let msg = 'Ошибка запроса'
     try {
       const j = await res.json()
-      msg = j.error || msg
+      msg = j.error || j.message || msg
     } catch {
       /* ignore */
     }

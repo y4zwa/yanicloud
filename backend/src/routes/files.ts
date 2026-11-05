@@ -4,7 +4,7 @@ import { Transform } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { db, rowToNode, toPublic, getFilesDir, getCacheDir, getUserFilesDir } from '../db.js'
+import { db, rowToNode, toPublic, getCacheDir, getUserFilesDir, isStorageError } from '../db.js'
 import { requireAuth, fail, userIdOf } from '../auth.js'
 import { classify } from '../filekind.js'
 import { convertToPdf } from '../convert.js'
@@ -222,6 +222,8 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
         created.push(toPublic(node))
       }
     } catch (err: any) {
+      // Ошибки диска должны уходить в общий обработчик (503), а не превращаться в 400
+      if (isStorageError(err)) throw err
       return fail(reply, 400, err.message || 'Ошибка загрузки')
     }
 

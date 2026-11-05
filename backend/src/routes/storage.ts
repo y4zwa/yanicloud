@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { requireAuth, userIdOf } from '../auth.js'
 import { getQuota, usedBytes } from '../nodes.js'
-import { getFilesDir, getUserFilesDir, reservedQuotaBytes } from '../db.js'
+import { ensureStorageDir, resolveUserFilesDir, reservedQuotaBytes, isStorageError } from '../db.js'
 import { diskInfo } from '../disk.js'
 
 export async function storageRoutes(app: FastifyInstance): Promise<void> {
@@ -13,18 +13,17 @@ export async function storageRoutes(app: FastifyInstance): Promise<void> {
 
     // Диск считаем по тому, где РЕАЛЬНО лежат файлы пользователя,
     // а не по глобальному storage_dir
-    let dir = getFilesDir()
+    const dir = resolveUserFilesDir(userId)
+    let available = true
+    let disk = { total: 0, free: 0 }
     try {
-      dir = getUserFilesDir(userId)
-    } catch {
-      /* нет личной папки — остаёмся на общем хранилище */
-    }
-    let disk
-    try {
+      ensureStorageDir(dir)
       disk = diskInfo(dir)
-    } catch {
-      dir = getFilesDir()
-      disk = diskInfo(dir)
+    } catch (err) {
+      if (!isStorageError(err)) throw err
+      // Диск отключён/недоступен: отдаём статистику по БД, чтобы интерфейс
+      // мог показать предупреждение, а не падать с 500.
+      available = false
     }
 
     const reservedByOthers = reservedQuotaBytes(userId)
@@ -33,6 +32,7 @@ export async function storageRoutes(app: FastifyInstance): Promise<void> {
       quota,
       percent,
       dir,
+      available,
       diskTotal: disk.total,
       diskFree: disk.free,
       reservedByOthers,

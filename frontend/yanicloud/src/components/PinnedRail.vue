@@ -6,12 +6,13 @@
     @dragleave.prevent="onDragLeave"
     @drop.prevent="onDrop"
   >
-    <div class="pinned-items">
+    <TransitionGroup name="pin" tag="div" class="pinned-items">
       <div
         v-for="node in pins"
         :key="node.id"
         class="pinned-item"
         :title="node.name"
+        v-ripple
         @click="open(node)"
       >
         <img v-if="thumbUrls[node.id]" :src="thumbUrls[node.id]" class="pinned-thumb" alt="" draggable="false" />
@@ -19,7 +20,7 @@
         <v-icon v-if="node.isFavorite" icon="mdi-star" color="#FFD54F" size="12" class="pinned-fav"></v-icon>
         <button class="pinned-remove" title="Открепить" @click.stop="unpin(node.id)">×</button>
       </div>
-    </div>
+    </TransitionGroup>
   </div>
 </template>
 
@@ -75,10 +76,10 @@ onMounted(loadPins)
   flex-direction: column;
   align-items: center;
   margin-top: 28px;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s var(--m3-ease-standard);
 }
 .pinned-section.is-over {
-  background-color: rgba(208, 188, 255, 0.08);
+  background-color: rgba(var(--md-sys-color-primary-rgb, 208, 188, 255), 0.08);
 }
 .pinned-items {
   flex: 1;
@@ -110,7 +111,7 @@ onMounted(loadPins)
   cursor: pointer;
   flex-shrink: 0;
   overflow: hidden;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s var(--m3-ease-standard);
 }
 .pinned-item:hover {
   background: var(--md-sys-color-surface-container-high);

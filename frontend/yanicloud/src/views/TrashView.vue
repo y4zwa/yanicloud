@@ -27,14 +27,20 @@
       <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
     </div>
 
-    <div v-else-if="!items.length" class="m3-card pa-12 d-flex flex-column align-center justify-center">
+    <div v-else-if="!items.length" class="m3-card m3-reveal-zoom pa-12 d-flex flex-column align-center justify-center">
       <v-icon icon="mdi-delete-outline" color="on-surface-variant" size="80" class="mb-4"></v-icon>
       <div class="text-h5 text-on-surface mb-2">Корзина пуста</div>
       <div class="text-title-medium text-on-surface-variant">Удалённые файлы появятся здесь</div>
     </div>
 
-    <div v-else class="d-flex flex-wrap gap-6 pb-12">
-      <div v-for="file in items" :key="file.id" class="m3-card m3-file-card d-flex flex-column pa-5" v-ripple>
+    <TransitionGroup v-else name="card-list" tag="div" class="d-flex flex-wrap gap-6 pb-12">
+      <div
+        v-for="(file, i) in items"
+        :key="file.id"
+        class="m3-card m3-file-card m3-reveal d-flex flex-column pa-5"
+        :style="{ '--i': Math.min(i, 12) }"
+        v-ripple
+      >
         <div class="m3-file-preview d-flex align-center justify-center mb-5 rounded-lg" :style="{ backgroundColor: fileBg(file) }">
           <v-icon :icon="fileIcon(file)" :color="fileColor(file)" size="64"></v-icon>
         </div>
@@ -57,7 +63,7 @@
           </div>
         </div>
       </div>
-    </div>
+    </TransitionGroup>
 
     <v-dialog v-model="confirmDialog" max-width="440">
       <div class="m3-dialog">
@@ -85,6 +91,7 @@ import { formatBytes, fileIcon, fileColor, fileBg } from '@/utils/format'
 
 const items = ref<NodeItem[]>([])
 const loading = ref(true)
+const refreshedOnce = ref(false)
 const confirmDialog = ref(false)
 const snackbar = ref(false)
 const snackText = ref('')
@@ -97,9 +104,10 @@ function notify(text: string, color = 'primary'): void {
 }
 
 async function load(): Promise<void> {
-  loading.value = true
+  if (!refreshedOnce.value) loading.value = true
   try {
     items.value = await listTrash()
+    refreshedOnce.value = true
   } catch (e) {
     notify(e instanceof ApiError ? e.message : 'Ошибка соединения', 'error')
   } finally {

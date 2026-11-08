@@ -1,9 +1,13 @@
 <template>
-  <transition name="preview-fade">
-    <div v-if="node" class="preview-overlay">
+  <Transition name="m3-overlay" appear>
+    <div v-if="node" class="preview-overlay" :class="{ 'image-mode': kind === 'image' }">
       <div class="preview-scrim" @click="close"></div>
 
-      <div class="preview-panel">
+      <!-- ФОТО: полноэкранный просмотр с зумом и панорамой -->
+      <ImageViewer v-if="kind === 'image'" :node="node" :url="url" :loading="loading" />
+
+      <!-- ОСТАЛЬНЫЕ ТИПЫ: панель предпросмотра -->
+      <div v-else class="preview-panel">
         <header class="preview-header d-flex align-center">
           <div class="m3-icon-avatar surface-variant mr-4" style="width: 48px; height: 48px; border-radius: 14px">
             <v-icon :icon="fileIcon(node)" :color="fileColor(node)" size="28"></v-icon>
@@ -13,6 +17,13 @@
             <div class="text-body-2 text-on-surface-variant">{{ formatBytes(node.size) }}</div>
           </div>
           <v-spacer></v-spacer>
+          <v-btn
+            icon="mdi-information-outline"
+            variant="text"
+            :color="showDetails ? 'primary' : 'on-surface-variant'"
+            title="Подробности"
+            @click="showDetails = !showDetails"
+          ></v-btn>
           <v-btn icon="mdi-download" variant="text" color="on-surface-variant" @click="download"></v-btn>
           <v-btn icon="mdi-close" variant="text" color="on-surface-variant" @click="close"></v-btn>
         </header>
@@ -34,9 +45,9 @@
               </v-btn>
             </div>
 
-            <img v-else-if="kind === 'image'" :src="url" class="preview-media preview-image" alt="" />
-
             <video v-else-if="kind === 'video'" :src="url" class="preview-media" controls autoplay></video>
+
+            <audio v-else-if="kind === 'audio'" :src="url" class="preview-audio" controls></audio>
 
             <iframe
               v-else-if="kind === 'pdf' || kind === 'office'"
@@ -58,23 +69,27 @@
           </template>
         </div>
       </div>
+
+      <FileDetailsPanel v-if="showDetails" :node="node" @close="showDetails = false" />
     </div>
-  </transition>
+  </Transition>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { previewNode, closePreview } from '@/store/preview'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { previewNode, previewShowDetails, closePreview } from '@/store/preview'
 import { getStreamUrl, fetchTextPreview, downloadFile, ApiError } from '@/api'
 import { previewKind, type PreviewKind } from '@/utils/preview'
 import { fileIcon, fileColor, formatBytes } from '@/utils/format'
+import ImageViewer from '@/components/ImageViewer.vue'
+import FileDetailsPanel from '@/components/FileDetailsPanel.vue'
 
 const node = previewNode
+const showDetails = previewShowDetails
 const url = ref('')
 const kind = ref<PreviewKind>('other')
 const loading = ref(false)
 const iframeLoading = ref(true)
-const textLoading = ref(false)
 const textContent = ref('')
 const error = ref('')
 
@@ -88,13 +103,10 @@ watch(
     error.value = ''
     loading.value = true
     iframeLoading.value = kind.value === 'pdf' || kind.value === 'office'
-    textLoading.value = false
     try {
       url.value = await getStreamUrl(n.id)
       if (kind.value === 'text') {
-        textLoading.value = true
         textContent.value = await fetchTextPreview(url.value)
-        textLoading.value = false
       }
     } catch (e) {
       error.value = e instanceof ApiError ? e.message : 'Не удалось открыть файл'
@@ -112,6 +124,18 @@ function close(): void {
 function download(): void {
   if (node.value) downloadFile(node.value).catch(() => undefined)
 }
+
+function onKey(e: KeyboardEvent): void {
+  if (e.key !== 'Escape' || kind.value === 'image') return
+  if (showDetails.value) {
+    showDetails.value = false
+    return
+  }
+  close()
+}
+
+onMounted(() => window.addEventListener('keydown', onKey))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </script>
 
 <style scoped>
@@ -123,6 +147,18 @@ function download(): void {
   align-items: center;
   justify-content: center;
   padding: 32px;
+  animation: preview-fade-in 0.18s ease;
+}
+@keyframes preview-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.preview-overlay.image-mode {
+  padding: 0;
 }
 .preview-scrim {
   position: absolute;
@@ -142,6 +178,7 @@ function download(): void {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  animation: m3-pop-in 0.32s var(--m3-ease-spring) both;
 }
 .preview-header {
   padding: 16px 20px;
@@ -163,8 +200,8 @@ function download(): void {
   width: auto;
   height: auto;
 }
-.preview-image {
-  object-fit: contain;
+.preview-audio {
+  width: min(520px, 80%);
 }
 .preview-iframe {
   width: 100%;
@@ -188,13 +225,5 @@ function download(): void {
 .preview-loading {
   width: 100%;
   height: 100%;
-}
-.preview-fade-enter-active,
-.preview-fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-.preview-fade-enter-from,
-.preview-fade-leave-to {
-  opacity: 0;
 }
 </style>

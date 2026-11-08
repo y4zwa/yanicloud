@@ -8,7 +8,7 @@
     <v-divider class="mb-10 border-opacity-10" color="outline-variant"></v-divider>
 
     <!-- АККАУНТ -->
-    <div class="m3-card pa-8 mb-8">
+    <div class="m3-card m3-reveal pa-8 mb-8" style="--i: 0">
       <h2 class="text-h5 font-weight-medium text-on-surface mb-6">Аккаунт</h2>
       <div class="d-flex align-center">
         <div class="m3-icon-avatar primary-container mr-6">
@@ -27,7 +27,7 @@
     </div>
 
     <!-- ОФОРМЛЕНИЕ -->
-    <div class="m3-card pa-8 mb-8">
+    <div class="m3-card m3-reveal pa-8 mb-8" style="--i: 1">
       <h2 class="text-h5 font-weight-medium text-on-surface mb-6">Акцентный цвет</h2>
       <div class="d-flex flex-wrap" style="gap: 16px">
         <div
@@ -63,7 +63,7 @@
     </div>
 
     <!-- ХРАНИЛИЩЕ (админ) -->
-    <div v-if="isAdmin" class="m3-card pa-8 mb-8">
+    <div v-if="isAdmin" class="m3-card m3-reveal pa-8 mb-8" style="--i: 2">
       <h2 class="text-h5 font-weight-medium text-on-surface mb-6">Хранилище</h2>
 
       <v-alert
@@ -143,7 +143,7 @@
     </div>
 
     <!-- ПОЛЬЗОВАТЕЛИ (админ) -->
-    <div v-if="isAdmin" class="m3-card pa-8">
+    <div v-if="isAdmin" class="m3-card m3-reveal pa-8" style="--i: 3">
       <div class="d-flex align-center justify-space-between mb-6">
         <h2 class="text-h5 font-weight-medium text-on-surface">Пользователи</h2>
         <v-btn color="primary-container" rounded="pill" class="text-none font-weight-medium" prepend-icon="mdi-account-plus" @click="openAddUser">
@@ -331,18 +331,19 @@ import {
 } from '@/api'
 import { currentUser } from '@/store/auth'
 import { formatBytes } from '@/utils/format'
-import { ACCENTS, getAccentId, setAccentId, getAccent } from '@/utils/theme'
+import { ACCENTS, getAccentId, setAccentId, vuetifyThemeColors } from '@/utils/theme'
+import { pulseThemeChange } from '@/utils/motion'
 
 const isAdmin = computed(() => !!currentUser.value?.isAdmin)
 const vuetifyTheme = useTheme()
 const accentId = ref(getAccentId())
 
 function chooseAccent(id: string): void {
-  setAccentId(id)
+  const scheme = setAccentId(id)
   accentId.value = id
-  const p = getAccent(id)
   const dark = vuetifyTheme.themes.value.dark
-  if (dark?.colors) dark.colors.primary = p.primary
+  if (dark?.colors) Object.assign(dark.colors, vuetifyThemeColors(scheme))
+  pulseThemeChange()
 }
 
 function pickBanner(): void {
@@ -723,7 +724,7 @@ onMounted(load)
   padding: 12px;
   border-radius: 16px;
   border: 2px solid transparent;
-  transition: background-color 0.2s, border-color 0.2s;
+  transition: background-color 0.2s var(--m3-ease-standard), border-color 0.2s var(--m3-ease-standard);
 }
 .accent-swatch:hover {
   background-color: var(--md-sys-color-surface-container-high);

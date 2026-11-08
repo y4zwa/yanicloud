@@ -76,6 +76,30 @@ export interface StorageInfo {
   availableTotal: number
 }
 
+export type FileMetadata = Record<string, any>
+
+export interface FileDetails extends NodeItem {
+  kind: string
+  metadata: FileMetadata
+}
+
+export interface LyricsWord {
+  t: number
+  text: string
+}
+
+export interface LyricsLine {
+  t: number | null
+  text: string
+  w?: LyricsWord[]
+}
+
+export interface LyricsResult {
+  lines: LyricsLine[]
+  synced: boolean
+  source: 'lrc' | 'tags' | 'lrclib' | 'none'
+}
+
 const TOKEN_KEY = 'yanicloud_token'
 
 export class ApiError extends Error {
@@ -268,6 +292,19 @@ export async function getStorage(): Promise<StorageInfo> {
 
 export async function getStreamUrl(id: string): Promise<string> {
   const res = await request<{ url: string }>(`/api/files/${id}/stream-url`, { method: 'POST' })
+  return res.url
+}
+
+export async function getFileDetails(id: string): Promise<FileDetails> {
+  return request<FileDetails>(`/api/files/${id}/details`)
+}
+
+export async function getLyrics(id: string): Promise<LyricsResult> {
+  return request<LyricsResult>(`/api/files/${id}/lyrics`)
+}
+
+export async function getCoverUrl(id: string): Promise<string> {
+  const res = await request<{ url: string }>(`/api/files/${id}/cover-url`, { method: 'POST' })
   return res.url
 }
 

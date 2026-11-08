@@ -10,6 +10,7 @@ import App from './App.vue'
 
 // Styles
 import 'unfonts.css'
+import '@/styles/motion.scss'
 
 const app = createApp(App)
 

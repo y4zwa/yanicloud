@@ -1,0 +1,313 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   YaniCloud — motion system
+   Единые кривые/длительности Material 3 + готовые классы и переходы.
+   Всё уважает prefers-reduced-motion.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --m3-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --m3-ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --m3-ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --m3-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --m3-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --m3-dur-short: 160ms;
+  --m3-dur-medium: 300ms;
+  --m3-dur-long: 520ms;
+  --m3-dur-xlong: 720ms;
+}
+
+/* ── Keyframes ─────────────────────────────────────────────────────────── */
+
+@keyframes m3-rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes m3-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes m3-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes m3-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes m3-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(14px);
+    transform: scale(1.015);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+}
+
+@keyframes m3-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -10px, 0); }
+}
+
+@keyframes m3-float-soft {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(4px, -6px, 0) rotate(1.5deg); }
+}
+
+@keyframes m3-drift-a {
+  0% { transform: translate3d(-4%, -3%, 0) scale(1); }
+  50% { transform: translate3d(6%, 4%, 0) scale(1.12); }
+  100% { transform: translate3d(-2%, 7%, 0) scale(1.04); }
+}
+
+@keyframes m3-drift-b {
+  0% { transform: translate3d(3%, 5%, 0) scale(1.05); }
+  50% { transform: translate3d(-6%, -4%, 0) scale(0.95); }
+  100% { transform: translate3d(4%, -6%, 0) scale(1.1); }
+}
+
+@keyframes m3-shimmer {
+  from { transform: translate3d(-110%, 0, 0); }
+  to { transform: translate3d(110%, 0, 0); }
+}
+
+@keyframes m3-sheen {
+  from { transform: translate3d(-140%, 0, 0) rotate(12deg); }
+  to { transform: translate3d(240%, 0, 0) rotate(12deg); }
+}
+
+@keyframes m3-ken-burns {
+  0% { transform: scale(1.04) translate3d(0, 0, 0); }
+  50% { transform: scale(1.12) translate3d(-1.5%, -1%, 0); }
+  100% { transform: scale(1.04) translate3d(0, 0, 0); }
+}
+
+@keyframes m3-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--md-sys-color-primary) 48%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes m3-glow-pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.06); }
+}
+
+@keyframes m3-eq-bounce {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes m3-spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes m3-gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Готовые классы появления ─────────────────────────────────────────── */
+
+.m3-reveal {
+  animation: m3-rise-in var(--m3-dur-long) var(--m3-ease-decelerate) both;
+  animation-delay: calc(var(--i, 0) * 42ms);
+}
+
+.m3-reveal-zoom {
+  animation: m3-scale-in var(--m3-dur-medium) var(--m3-ease-decelerate) both;
+  animation-delay: calc(var(--i, 0) * 36ms);
+}
+
+.m3-float {
+  animation: m3-float 4.5s ease-in-out infinite;
+}
+
+.m3-float-soft {
+  animation: m3-float-soft 6s ease-in-out infinite;
+}
+
+/* ── Переходы между видами ────────────────────────────────────────────── */
+
+.view-enter-active {
+  transition:
+    opacity 0.36s var(--m3-ease-standard),
+    transform 0.36s var(--m3-ease-decelerate);
+}
+
+.view-leave-active {
+  transition:
+    opacity 0.16s var(--m3-ease-accelerate),
+    transform 0.16s var(--m3-ease-accelerate);
+}
+
+.view-enter-from {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+}
+
+.view-leave-to {
+  opacity: 0;
+  transform: translate3d(0, -10px, 0);
+}
+
+/* Оверлеи / панели */
+.m3-overlay-enter-active {
+  transition: opacity 0.28s var(--m3-ease-standard);
+}
+
+.m3-overlay-leave-active {
+  transition: opacity 0.2s var(--m3-ease-accelerate);
+}
+
+.m3-overlay-enter-from,
+.m3-overlay-leave-to {
+  opacity: 0;
+}
+
+.m3-slide-left-enter-active {
+  transition:
+    transform 0.42s var(--m3-ease-decelerate),
+    opacity 0.32s var(--m3-ease-standard);
+}
+
+.m3-slide-left-leave-active {
+  transition:
+    transform 0.24s var(--m3-ease-accelerate),
+    opacity 0.2s var(--m3-ease-accelerate);
+}
+
+.m3-slide-left-enter-from,
+.m3-slide-left-leave-to {
+  transform: translate3d(102%, 0, 0);
+  opacity: 0.4;
+}
+
+/* Списки: плавная перестановка/удаление карточек */
+.card-list-move,
+.card-list-enter-active,
+.card-list-leave-active {
+  transition:
+    transform 0.4s var(--m3-ease-decelerate),
+    opacity 0.3s var(--m3-ease-standard);
+}
+
+.card-list-enter-from,
+.card-list-leave-to {
+  opacity: 0;
+  transform: scale(0.96) translateY(10px);
+}
+
+.card-list-leave-active {
+  position: absolute;
+}
+
+/* Pinned rail */
+.pin-enter-active {
+  transition:
+    transform 0.38s var(--m3-ease-spring),
+    opacity 0.28s var(--m3-ease-standard);
+}
+
+.pin-leave-active {
+  transition:
+    transform 0.22s var(--m3-ease-accelerate),
+    opacity 0.18s var(--m3-ease-accelerate);
+}
+
+.pin-enter-from,
+.pin-leave-to {
+  opacity: 0;
+  transform: scale(0.6) translateY(-6px);
+}
+
+.pin-move {
+  transition: transform 0.3s var(--m3-ease-decelerate);
+}
+
+/* ── Плавная смена акцентной темы ─────────────────────────────────────── */
+
+.theme-morphing .m3-card,
+.theme-morphing .m3-nav-rail,
+.theme-morphing .m3-top-bar,
+.theme-morphing .m3-search-bar,
+.theme-morphing .m3-nav-item__indicator,
+.theme-morphing .player-bar,
+.theme-morphing .lyrics-side,
+.theme-morphing .m3-hero-card,
+.theme-morphing .m3-hero-image-card,
+.theme-morphing .accent-swatch,
+.theme-morphing .auth-card,
+.theme-morphing .m3-dialog {
+  transition:
+    background-color 0.55s var(--m3-ease-standard),
+    color 0.55s var(--m3-ease-standard),
+    border-color 0.55s var(--m3-ease-standard),
+    box-shadow 0.55s var(--m3-ease-standard) !important;
+}
+
+/* ── Доступность ──────────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: 3px;
+}
+
+/* Vuetify сам рисует рамку поля — глобальный focus-ring только мешает */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.v-field__input:focus-visible,
+.v-field input:focus-visible,
+.v-field textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--md-sys-color-primary) 34%, transparent);
+  color: var(--md-sys-color-on-surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

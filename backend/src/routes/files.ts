@@ -9,6 +9,9 @@ import { requireAuth, fail, userIdOf } from '../auth.js'
 import { classify } from '../filekind.js'
 import { convertToPdf } from '../convert.js'
 import { generateThumb } from '../thumbs.js'
+import { readFileMetadata } from '../metadata.js'
+import { getLyrics } from '../lyrics.js'
+import { extractCover } from '../covers.js'
 import {
   getNode,
   getQuota,
@@ -67,7 +70,7 @@ async function mediaAuth(
       const payload = app.jwt.verify(t) as any
       if (
         payload &&
-        (payload.kind === 'stream' || payload.kind === 'thumb' || payload.kind === 'download') &&
+        (payload.kind === 'stream' || payload.kind === 'thumb' || payload.kind === 'download' || payload.kind === 'cover') &&
         payload.id === (req.params as any).id
       ) {
         return Number(payload.sub)
@@ -320,6 +323,44 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     return streamInline(reply, req, thumbPath, 'image/jpeg')
   })
 
+  app.post('/api/files/:id/cover-url', { preHandler: requireAuth }, async (req, reply) => {
+    const userId = userIdOf(req)
+    const { id } = req.params as any
+    const node = getNode(userId, id)
+    if (!node || node.type !== 'file' || node.deletedAt) return fail(reply, 404, 'Файл не найден')
+    const token = app.jwt.sign({ sub: String(userId), kind: 'cover', id }, { expiresIn: '12h' })
+    return { url: `/api/files/${id}/cover?t=${token}` }
+  })
+
+  app.get('/api/files/:id/cover', async (req, reply) => {
+    const userId = await mediaAuth(app, req, reply)
+    if (userId === null) return reply
+    const { id } = req.params as any
+    const node = getNode(userId, id)
+    if (!node || node.type !== 'file' || node.deletedAt || !node.storageKey) {
+      return fail(reply, 404, 'Файл не найден')
+    }
+    const fullPath = path.join(getUserFilesDir(userId), node.storageKey)
+    if (!fs.existsSync(fullPath)) return fail(reply, 404, 'Файл не найден')
+
+    const coverPath = path.join(getCacheDir(), `${node.id}.${node.updatedAt}.cover.jpg`)
+    if (!fs.existsSync(coverPath)) {
+      const tmpPath = `${coverPath}.tmp.jpg`
+      const ok = await extractCover(fullPath, tmpPath)
+      if (!ok) {
+        fs.rmSync(tmpPath, { force: true })
+        return fail(reply, 404, 'Обложка не найдена')
+      }
+      try {
+        fs.renameSync(tmpPath, coverPath)
+      } catch {
+        fs.rmSync(tmpPath, { force: true })
+        return fail(reply, 422, 'Не удалось сохранить обложку')
+      }
+    }
+    return streamInline(reply, req, coverPath, 'image/jpeg')
+  })
+
   app.post('/api/files/:id/download-url', { preHandler: requireAuth }, async (req, reply) => {
     const userId = userIdOf(req)
     const { id } = req.params as any
@@ -347,6 +388,44 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
       `attachment; filename="${node.name.replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(node.name)}`
     )
     return reply.send(fs.createReadStream(fullPath))
+  })
+
+  app.get('/api/files/:id/details', { preHandler: requireAuth }, async (req, reply) => {    const userId = userIdOf(req)
+    const { id } = req.params as any
+    const node = getNode(userId, id)
+    if (!node || node.deletedAt) return fail(reply, 404, 'Не найдено')
+
+    const { kind } = classify(node.name, node.mimeType)
+    let metadata: Record<string, unknown> = {}
+
+    if (node.type === 'file' && node.storageKey) {
+      const fullPath = path.join(getUserFilesDir(userId), node.storageKey)
+      if (fs.existsSync(fullPath)) {
+        try {
+          metadata = await readFileMetadata(kind, fullPath)
+        } catch (err) {
+          console.error('[details] metadata failed:', err)
+          metadata = { error: 'Не удалось прочитать метаданные' }
+        }
+      }
+    }
+
+    return { ...toPublic(node), kind, metadata }
+  })
+
+  app.get('/api/files/:id/lyrics', { preHandler: requireAuth }, async (req, reply) => {
+    const userId = userIdOf(req)
+    const { id } = req.params as any
+    const node = getNode(userId, id)
+    if (!node || node.type !== 'file' || node.deletedAt || !node.storageKey) {
+      return fail(reply, 404, 'Файл не найден')
+    }
+    if (classify(node.name, node.mimeType).kind !== 'audio') {
+      return fail(reply, 415, 'Текст доступен только для аудио')
+    }
+    const fullPath = path.join(getUserFilesDir(userId), node.storageKey)
+    if (!fs.existsSync(fullPath)) return fail(reply, 404, 'Файл не найден')
+    return getLyrics(userId, node, fullPath)
   })
 
   app.patch('/api/files/:id', { preHandler: requireAuth }, async (req, reply) => {

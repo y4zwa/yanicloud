@@ -16,7 +16,7 @@
     ></v-progress-linear>
     <!-- ХИРО БЛОК (только корень) -->
     <div v-if="isRoot" class="m3-hero-section mb-8">
-      <div class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center">
+      <div class="m3-card m3-hero-text-card m3-hero-card pa-10 d-flex flex-column justify-center m3-reveal">
         <!-- СПОКОЙНАЯ МЕДЛЕННАЯ КОМПОЗИЦИЯ MATERIAL 3 SHAPES
              Все 4 фигуры фиксированного размера, плавно и синхронно движутся,
              с заметным разбросом оттенков от текущего акцентного цвета -->
@@ -45,14 +45,14 @@
         </svg>
         <!-- КОНТЕНТ ХИРО КАРТОЧКИ -->
         <div class="m3-hero-content d-flex flex-column flex-grow-1 justify-center">
-          <h1 class="text-h3 font-weight-bold mb-4 text-on-surface hero-title" style="line-height: 1.18;">
+          <h1 class="text-h3 font-weight-bold mb-4 text-on-surface hero-title m3-reveal" style="line-height: 1.18; --i: 0">
             {{ greeting }}, <br />
             <span class="text-primary">{{ currentUser?.username || 'друг' }}</span>
           </h1>
-          <p class="text-title-medium text-on-surface-variant mb-10 hero-subtitle" style="line-height: 1.6;">
+          <p class="text-title-medium text-on-surface-variant mb-10 hero-subtitle m3-reveal" style="line-height: 1.6; --i: 1">
             Храните, делитесь и работайте из любой точки мира. Безопасно и быстро.
           </p>
-          <div class="d-flex align-center gap-4 mt-auto">
+          <div class="d-flex align-center gap-4 mt-auto m3-reveal" style="--i: 2">
             <v-btn
               rounded="pill"
               size="x-large"
@@ -82,8 +82,8 @@
       </div>
       <!-- Баннер: чистая картинка без надписей и без кликабельности -->
       <div
-        class="m3-hero-image-card m3-hero-image-card--static"
-        :style="bannerUrl ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
+        class="m3-hero-image-card m3-hero-image-card--static m3-reveal"
+        :style="[{ '--i': 1 }, bannerUrl ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}]"
       ></div>
     </div>
     <v-alert
@@ -99,10 +99,10 @@
     <!-- ВИДЖЕТЫ (только корень) -->
     <div v-if="isRoot" class="m3-widgets-row d-flex gap-6 mb-12">
       <!-- Хранилище: статичный информационный виджет -->
-      <div class="m3-card m3-widget-card m3-widget-card--static d-flex align-center flex-grow-1">
+      <div class="m3-card m3-widget-card m3-widget-card--static d-flex align-center flex-grow-1 m3-reveal" style="--i: 2">
         <div class="m3-progress-wrapper mr-5">
           <v-progress-circular
-            :model-value="storagePercent"
+            :model-value="displayPercent"
             color="primary"
             size="58"
             width="6"
@@ -136,7 +136,8 @@
       </div>
       <!-- Избранное: кликабельный виджет -->
       <div
-        class="m3-card m3-widget-card m3-widget-card--interactive d-flex align-center flex-grow-1"
+        class="m3-card m3-widget-card m3-widget-card--interactive d-flex align-center flex-grow-1 m3-reveal"
+        style="--i: 3"
         v-ripple
         @click="$emit('goto-favorites')"
       >
@@ -222,7 +223,7 @@
     </div>
     <template v-else>
       <!-- ПУСТО -->
-      <div v-if="!folders.length && !files.length" class="m3-card pa-12 d-flex flex-column align-center justify-center">
+      <div v-if="!folders.length && !files.length" class="m3-card m3-reveal-zoom pa-12 d-flex flex-column align-center justify-center">
         <v-icon icon="mdi-folder-open-outline" color="on-surface-variant" size="80" class="mb-4"></v-icon>
         <div class="text-h5 font-weight-bold text-on-surface mb-2">Здесь пока пусто</div>
         <div class="text-title-medium text-on-surface-variant mb-8">Перетащите файлы или создайте папку</div>
@@ -242,10 +243,11 @@
         </div>
         <div class="m3-scroll-container gap-6 mb-12 pb-4">
           <div
-            v-for="folder in folders"
+            v-for="(folder, i) in folders"
             :key="folder.id"
-            class="m3-card m3-folder-card d-flex flex-column pa-6"
+            class="m3-card m3-folder-card m3-reveal d-flex flex-column pa-6"
             :class="{ 'm3-drop-target-ring': isInternalCardDragging && dragOverFolderId === folder.id }"
+            :style="{ '--i': Math.min(i, 12) }"
             v-ripple
             draggable="true"
             @dragstart="onCardDragStart($event, folder)"
@@ -297,9 +299,10 @@
         </div>
         <div class="d-flex flex-wrap gap-6 pb-12">
           <div
-            v-for="file in files"
+            v-for="(file, i) in files"
             :key="file.id"
-            class="m3-card m3-file-card d-flex flex-column pa-5"
+            class="m3-card m3-file-card m3-reveal d-flex flex-column pa-5"
+            :style="{ '--i': Math.min(i, 12) }"
             v-ripple
             draggable="true"
             @dragstart="onCardDragStart($event, file)"
@@ -334,6 +337,7 @@
                     @click="toggleFavorite(file)"
                   ></v-list-item>
                   <v-list-item prepend-icon="mdi-download" title="Скачать" @click="download(file)"></v-list-item>
+                  <v-list-item prepend-icon="mdi-information-outline" title="Подробности" @click="openDetails(file)"></v-list-item>
                   <v-list-item prepend-icon="mdi-pencil-outline" title="Переименовать" @click="openRename(file)"></v-list-item>
                   <v-list-item prepend-icon="mdi-delete-outline" title="Удалить" @click="removeNode(file)"></v-list-item>
                 </v-list>
@@ -349,9 +353,10 @@
         </div>
         <div class="m3-scroll-container gap-6 pb-12">
           <div
-            v-for="file in recent"
+            v-for="(file, i) in recent"
             :key="file.id"
-            class="m3-card m3-file-card d-flex flex-column pa-5"
+            class="m3-card m3-file-card m3-reveal d-flex flex-column pa-5"
+            :style="{ '--i': Math.min(i, 12) }"
             v-ripple
             draggable="true"
             @dragstart="onCardDragStart($event, file)"
@@ -381,6 +386,7 @@
                 </template>
                 <v-list density="comfortable" class="nunito-scope">
                   <v-list-item prepend-icon="mdi-download" title="Скачать" @click="download(file)"></v-list-item>
+                  <v-list-item prepend-icon="mdi-information-outline" title="Подробности" @click="openDetails(file)"></v-list-item>
                   <v-list-item prepend-icon="mdi-eye-off-outline" title="Скрыть из недавних" @click="hideRecent(file)"></v-list-item>
                 </v-list>
               </v-menu>
@@ -452,8 +458,9 @@
 </template>
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { pendingFolder } from '@/store/nav'
+import { pendingFolder, homeRequest } from '@/store/nav'
 import { openPreview } from '@/store/preview'
+import { openDetails } from '@/store/details'
 import { playTrack } from '@/store/player'
 import { startPinDrag, endPinDrag, draggingPin } from '@/store/pins'
 import { currentUser } from '@/store/auth'
@@ -489,6 +496,7 @@ const storage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, available: tru
 const bannerUrl = ref<string | null>(null)
 const loading = ref(true)
 const error = ref('')
+const loadedFolderKey = ref('')
 const uploading = ref(false)
 const progress = ref(0)
 const dragOver = ref(false)
@@ -522,7 +530,7 @@ const storagePercent = computed(() => {
   return 0
 })
 const storagePercentLabel = computed(() => {
-  const p = storagePercent.value
+  const p = displayPercent.value
   if (p > 0 && p < 1) return `${p.toFixed(1)}%`
   return `${Math.round(p)}%`
 })
@@ -530,6 +538,27 @@ const storageLabel = computed(() => {
   if (storage.value.quota > 0) return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.quota)}`
   return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.availableTotal)}`
 })
+
+/* ── Плавный «догоняющий» прогресс хранилища ──────────────────────────── */
+const displayPercent = ref(0)
+let percentRaf = 0
+watch(
+  storagePercent,
+  (to) => {
+    const from = displayPercent.value
+    const start = performance.now()
+    const dur = 720
+    cancelAnimationFrame(percentRaf)
+    const tick = (now: number): void => {
+      const p = Math.min(1, (now - start) / dur)
+      const eased = 1 - Math.pow(1 - p, 3)
+      displayPercent.value = from + (to - from) * eased
+      if (p < 1) percentRaf = requestAnimationFrame(tick)
+    }
+    percentRaf = requestAnimationFrame(tick)
+  },
+  { immediate: true }
+)
 /* ──────────────────────────────────────────────────────────────────────────
    СТАТИЧЕСКАЯ ГЕОМЕТРИЯ ФИГУР MATERIAL 3 (БЕЗ ИСКАЖЕНИЯ РАЗМЕРА)
    Генерируется один раз с идеальными пропорциями. Само движение — медленное,
@@ -826,7 +855,9 @@ function notify(text: string, color = 'primary'): void {
   snackbar.value = true
 }
 async function load(): Promise<void> {
-  loading.value = true
+  const folderKey = currentFolderId.value ?? 'root'
+  const isFolderChange = loadedFolderKey.value !== folderKey
+  if (isFolderChange) loading.value = true
   error.value = ''
   try {
     items.value = await listFiles(currentFolderId.value)
@@ -845,18 +876,24 @@ async function load(): Promise<void> {
         .catch(() => undefined)
     }
     loadThumbs([...items.value, ...recent.value])
+    loadedFolderKey.value = folderKey
   } catch (e) {
     error.value = e instanceof ApiError ? e.message : 'Ошибка соединения'
   } finally {
     loading.value = false
   }
 }
+function scrollMainTop(): void {
+  document.querySelector<HTMLElement>('.m3-main-content')?.scrollTo({ top: 0, behavior: 'smooth' })
+}
 function openFolder(folder: NodeItem): void {
   stack.value.push({ id: folder.id, name: folder.name })
+  scrollMainTop()
   load()
 }
 function goUp(): void {
   if (stack.value.length > 1) stack.value.pop()
+  scrollMainTop()
   load()
 }
 function breadcrumbIndex(item: any): number {
@@ -867,13 +904,14 @@ function isLastBreadcrumb(item: any): boolean {
 }
 function goTo(index: number): void {
   stack.value = stack.value.slice(0, index + 1)
+  scrollMainTop()
   load()
 }
 function openFile(file: NodeItem, source: NodeItem[] = items.value): void {
   if (isAudio(file.name, file.mimeType)) {
     playTrack(file, source.filter((n) => n.type === 'file' && isAudio(n.name, n.mimeType)))
   } else {
-    openPreview(file)
+    openPreview(file, source)
   }
 }
 async function download(file: NodeItem): Promise<void> {
@@ -991,14 +1029,23 @@ function handlePendingFolder(): void {
   if (!f) return
   pendingFolder.value = null
   stack.value = [{ id: null, name: 'Главная' }, { id: f.id, name: f.name }]
+  scrollMainTop()
+  load()
+}
+function handleGoHome(): void {
+  pendingFolder.value = null
+  stack.value = [{ id: null, name: 'Главная' }]
+  scrollMainTop()
   load()
 }
 watch(pendingFolder, () => handlePendingFolder())
+watch(homeRequest, () => handleGoHome())
 onMounted(() => {
   if (pendingFolder.value) handlePendingFolder()
   else load()
 })
 onBeforeUnmount(() => {
+  cancelAnimationFrame(percentRaf)
   cleanupPinDragState()
 })
 </script>
@@ -1190,7 +1237,7 @@ body,
   min-height: 100px !important;
   border: none !important;
   background-color: var(--md-sys-color-surface-container);
-  transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1);
+  transition: background-color 0.22s var(--m3-ease-standard);
 }
 .m3-widget-card--static {
   cursor: default;
@@ -1232,13 +1279,13 @@ body,
   border: none !important;
   border-radius: 24px !important;
   overflow: hidden;
-  transform: none !important;
   background-clip: padding-box;
-  transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0, 0, 1);
+  transition:
+    background-color 0.22s var(--m3-ease-standard),
+    box-shadow 0.22s var(--m3-ease-standard);
 }
 .m3-folder-card:hover,
 .m3-file-card:hover {
-  transform: none !important;
   background-color: color-mix(
     in srgb,
     var(--md-sys-color-on-surface) 8%,

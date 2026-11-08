@@ -15,17 +15,18 @@
       <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
     </div>
 
-    <div v-else-if="!items.length" class="m3-card pa-12 d-flex flex-column align-center justify-center">
+    <div v-else-if="!items.length" class="m3-card m3-reveal-zoom pa-12 d-flex flex-column align-center justify-center">
       <v-icon icon="mdi-star-outline" color="on-surface-variant" size="80" class="mb-4"></v-icon>
       <div class="text-h5 text-on-surface mb-2">Пока нет избранного</div>
       <div class="text-title-medium text-on-surface-variant">Отмечайте файлы звёздочкой, чтобы найти их здесь</div>
     </div>
 
-    <div v-else class="d-flex flex-wrap gap-6 pb-12">
+    <TransitionGroup v-else name="card-list" tag="div" class="d-flex flex-wrap gap-6 pb-12">
       <div
-        v-for="item in items"
+        v-for="(item, i) in items"
         :key="item.id"
-        class="m3-card m3-file-card d-flex flex-column pa-5"
+        class="m3-card m3-file-card m3-reveal d-flex flex-column pa-5"
+        :style="{ '--i': Math.min(i, 12) }"
         v-ripple
         draggable="true"
         @dragstart="startPinDrag($event, item)"
@@ -51,13 +52,14 @@
                 @click="unfavorite(item)"
               ></v-list-item>
               <v-list-item v-if="item.type === 'file'" prepend-icon="mdi-download" title="Скачать" @click="download(item)"></v-list-item>
+              <v-list-item v-if="item.type === 'file'" prepend-icon="mdi-information-outline" title="Подробности" @click="openDetails(item)"></v-list-item>
               <v-list-item v-else prepend-icon="mdi-folder-open-outline" title="Открыть" @click="open(item)"></v-list-item>
               <v-list-item prepend-icon="mdi-delete-outline" title="Удалить" @click="remove(item)"></v-list-item>
             </v-list>
           </v-menu>
         </div>
       </div>
-    </div>
+    </TransitionGroup>
 
     <v-snackbar v-model="snackbar" :color="snackColor" timeout="3000" rounded="pill">
       {{ snackText }}
@@ -71,6 +73,7 @@ import { listFavorites, downloadFile, setFavorite, trashNode, ApiError, type Nod
 import { formatBytes, fileIcon, fileColor, fileBg } from '@/utils/format'
 import { requestOpenFolder } from '@/store/nav'
 import { openPreview } from '@/store/preview'
+import { openDetails } from '@/store/details'
 import { playTrack } from '@/store/player'
 import { startPinDrag, endPinDrag } from '@/store/pins'
 import FileThumb from '@/components/FileThumb.vue'
@@ -81,6 +84,7 @@ const emit = defineEmits<{ (e: 'goto-files'): void }>()
 
 const items = ref<NodeItem[]>([])
 const loading = ref(true)
+const refreshedOnce = ref(false)
 const snackbar = ref(false)
 const snackText = ref('')
 const snackColor = ref('primary')
@@ -94,10 +98,11 @@ function notify(text: string, color = 'primary'): void {
 }
 
 async function load(): Promise<void> {
-  loading.value = true
+  if (!refreshedOnce.value) loading.value = true
   try {
     items.value = await listFavorites()
     loadThumbs(items.value)
+    refreshedOnce.value = true
   } catch (e) {
     notify(e instanceof ApiError ? e.message : 'Ошибка соединения', 'error')
   } finally {
@@ -112,7 +117,7 @@ function open(item: NodeItem): void {
   } else if (isAudio(item.name, item.mimeType)) {
     playTrack(item, items.value.filter((n) => n.type === 'file' && isAudio(n.name, n.mimeType)))
   } else {
-    openPreview(item)
+    openPreview(item, items.value)
   }
 }
 

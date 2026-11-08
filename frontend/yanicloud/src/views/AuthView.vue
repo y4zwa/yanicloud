@@ -1,13 +1,13 @@
 <template>
   <div class="auth-root">
-    <div class="auth-card">
-      <div class="auth-logo">
+    <div class="auth-card m3-reveal">
+      <div class="auth-logo m3-float">
         <v-icon icon="mdi-cloud" color="primary" size="64"></v-icon>
       </div>
       <h1 class="auth-title">YaniCloud</h1>
       <p class="auth-subtitle">С возвращением! Войдите в аккаунт.</p>
 
-      <v-form @submit.prevent="submit">
+      <v-form class="m3-reveal" style="--i: 2" @submit.prevent="submit">
         <v-text-field
           v-model="username"
           label="Логин"

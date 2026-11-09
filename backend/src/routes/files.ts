@@ -33,6 +33,23 @@ const LIST_SQL = `
   ORDER BY CASE WHEN n.type = 'folder' THEN 0 ELSE 1 END, n.name COLLATE NOCASE ASC
 `
 
+/**
+ * Content-Disposition с поддержкой не-ASCII имён (RFC 5987).
+ * В `filename` допускается только ASCII, иначе Node/Fastify падает с ERR_INVALID_CHAR.
+ * Кириллица и прочие символы передаются в `filename*` в percent-encoding.
+ */
+function attachmentDisposition(filename: string): string {
+  const fallback = filename
+    .replace(/[^\x20-\x7e]/g, '_')
+    .replace(/["\\]/g, '_')
+    .slice(0, 200) || 'download'
+  const encoded = encodeURIComponent(filename).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+  )
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`
+}
+
 function streamInline(reply: FastifyReply, req: FastifyRequest, filePath: string, contentType: string): FastifyReply {
   const stat = fs.statSync(filePath)
   reply.header('Accept-Ranges', 'bytes')
@@ -383,10 +400,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
 
     reply.header('Content-Type', node.mimeType || 'application/octet-stream')
     reply.header('Content-Length', node.size)
-    reply.header(
-      'Content-Disposition',
-      `attachment; filename="${node.name.replace(/"/g, '')}"; filename*=UTF-8''${encodeURIComponent(node.name)}`
-    )
+    reply.header('Content-Disposition', attachmentDisposition(node.name))
     return reply.send(fs.createReadStream(fullPath))
   })
 

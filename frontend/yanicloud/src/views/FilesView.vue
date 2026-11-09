@@ -81,10 +81,14 @@
         </div>
       </div>
       <!-- Баннер: чистая картинка без надписей и без кликабельности -->
-      <div
-        class="m3-hero-image-card m3-hero-image-card--static m3-reveal"
-        :style="[{ '--i': 1 }, bannerUrl ? { backgroundImage: `url(${bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}]"
-      ></div>
+      <div class="m3-hero-image-card m3-hero-image-card--static m3-reveal" :style="{ '--i': 1 }">
+        <BannerTile
+          v-if="bannerUrl"
+          :url="bannerUrl"
+          :fit="bannerFit"
+          :position="bannerPosition"
+        />
+      </div>
     </div>
     <v-alert
       v-if="isRoot && !storage.available"
@@ -465,14 +469,16 @@ import { playTrack } from '@/store/player'
 import { startPinDrag, endPinDrag, draggingPin } from '@/store/pins'
 import { currentUser } from '@/store/auth'
 import FileThumb from '@/components/FileThumb.vue'
+import BannerTile from '@/components/BannerTile.vue'
 import { useThumbs } from '@/composables/useThumbs'
 import { isAudio } from '@/utils/preview'
+import type { BannerFit, BannerPosition } from '@/utils/banner'
 import {
   listFiles,
   listFavorites,
   listRecent,
   getStorage,
-  getBannerUrl,
+  getBannerInfo,
   createFolder,
   uploadFiles,
   downloadFile,
@@ -494,6 +500,8 @@ const recent = ref<NodeItem[]>([])
 const favoritesCount = ref(0)
 const storage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, available: true, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
 const bannerUrl = ref<string | null>(null)
+const bannerFit = ref<BannerFit>('contain')
+const bannerPosition = ref<BannerPosition>('center')
 const loading = ref(true)
 const error = ref('')
 const loadedFolderKey = ref('')
@@ -871,8 +879,12 @@ async function load(): Promise<void> {
       } else {
         storage.value = { ...storage.value, available: false, diskTotal: 0, diskFree: 0 }
       }
-      getBannerUrl()
-        .then((u) => (bannerUrl.value = u))
+      getBannerInfo()
+        .then((info) => {
+          bannerUrl.value = info.url
+          bannerFit.value = info.fit
+          bannerPosition.value = info.position
+        })
         .catch(() => undefined)
     }
     loadThumbs([...items.value, ...recent.value])
@@ -1228,6 +1240,7 @@ body,
   pointer-events: none;
   user-select: none;
   border: none !important;
+  isolation: isolate;
 }
 /* ═══════════════════════════════════════════════════════════════════════════
    2. ВИДЖЕТЫ (ХРАНИЛИЩЕ И ИЗБРАННОЕ) — ПРОПОРЦИИ M3 БЕЗ РАМОК

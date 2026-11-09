@@ -77,6 +77,12 @@ if (!userCols.some((c) => c.name === 'storage_path')) {
 if (!userCols.some((c) => c.name === 'banner')) {
   db.exec('ALTER TABLE users ADD COLUMN banner INTEGER NOT NULL DEFAULT 0')
 }
+if (!userCols.some((c) => c.name === 'banner_fit')) {
+  db.exec("ALTER TABLE users ADD COLUMN banner_fit TEXT NOT NULL DEFAULT 'contain'")
+}
+if (!userCols.some((c) => c.name === 'banner_position')) {
+  db.exec("ALTER TABLE users ADD COLUMN banner_position TEXT NOT NULL DEFAULT 'center'")
+}
 
 const nodeCols = db.prepare('PRAGMA table_info(nodes)').all() as any[]
 if (!nodeCols.some((c) => c.name === 'hidden_recent')) {

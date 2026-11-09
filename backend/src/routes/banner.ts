@@ -5,6 +5,7 @@ import sharp from 'sharp'
 import { db } from '../db.js'
 import { config } from '../config.js'
 import { requireAuth, fail, userIdOf } from '../auth.js'
+import { normalizeBannerFit, normalizeBannerPosition } from '../banner-settings.js'
 
 const MAX_BANNER_BYTES = 25 * 1024 * 1024
 const MAX_BANNER_DIMENSION = 2560
@@ -139,6 +140,20 @@ export async function bannerRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(fs.createReadStream(banner.file))
   })
 
+  app.patch('/api/banner', { preHandler: requireAuth }, async (req) => {
+    const userId = userIdOf(req)
+    const body = (req.body || {}) as any
+    const current = db
+      .prepare('SELECT banner_fit, banner_position FROM users WHERE id = ?')
+      .get(userId) as any
+    const fit = normalizeBannerFit(body.fit === undefined ? current?.banner_fit : body.fit)
+    const position = normalizeBannerPosition(
+      body.position === undefined ? current?.banner_position : body.position
+    )
+    db.prepare('UPDATE users SET banner_fit = ?, banner_position = ? WHERE id = ?').run(fit, position, userId)
+    return { ok: true, fit, position }
+  })
+
   app.delete('/api/banner', { preHandler: requireAuth }, async (req) => {
     const userId = userIdOf(req)
     fs.rmSync(jpegPath(userId), { force: true })
@@ -149,9 +164,13 @@ export async function bannerRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/banner-url', { preHandler: requireAuth }, async (req) => {
     const userId = userIdOf(req)
-    const row = db.prepare('SELECT banner FROM users WHERE id = ?').get(userId) as any
-    if (!row?.banner || !existingBanner(userId)) return { url: null }
+    const row = db
+      .prepare('SELECT banner, banner_fit, banner_position FROM users WHERE id = ?')
+      .get(userId) as any
+    const fit = normalizeBannerFit(row?.banner_fit)
+    const position = normalizeBannerPosition(row?.banner_position)
+    if (!row?.banner || !existingBanner(userId)) return { url: null, fit, position }
     const token = app.jwt.sign({ sub: String(userId), kind: 'banner' }, { expiresIn: '12h' })
-    return { url: `/api/banner?t=${token}` }
+    return { url: `/api/banner?t=${token}`, fit, position }
   })
 }

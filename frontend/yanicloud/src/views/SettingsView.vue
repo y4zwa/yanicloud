@@ -44,7 +44,7 @@
 
       <v-divider class="my-8 border-opacity-10" color="outline-variant"></v-divider>
       <h3 class="text-title-medium font-weight-medium text-on-surface mb-4">Баннер на главной</h3>
-      <div class="d-flex align-center" style="gap: 12px">
+      <div class="d-flex flex-wrap align-center" style="gap: 12px">
         <v-btn
           color="primary-container"
           rounded="pill"
@@ -55,12 +55,83 @@
         >
           <span class="text-on-primary-container">Загрузить картинку</span>
         </v-btn>
+        <v-btn
+          variant="outlined"
+          rounded="pill"
+          class="text-none font-weight-medium"
+          prepend-icon="mdi-crop"
+          :disabled="!bannerInfo.url"
+          @click="openBannerDialog"
+        >
+          Настроить
+        </v-btn>
         <v-btn variant="outlined" rounded="pill" class="text-none font-weight-medium" @click="removeBanner">
           Удалить баннер
         </v-btn>
       </div>
+      <div class="text-body-2 text-on-surface-variant mt-3">
+        После загрузки можно выбрать, показывать картинку целиком или заполнить плитку и какую часть кадра оставить.
+      </div>
       <input ref="bannerInput" type="file" accept="image/*" style="display: none" @change="onBannerPick" />
     </div>
+
+    <!-- ДИАЛОГ: как показывать баннер -->
+    <v-dialog v-model="bannerDialog" max-width="780">
+      <div class="m3-dialog banner-dialog">
+        <div class="text-h6 font-weight-medium text-on-surface mb-4">Отображение баннера</div>
+
+        <div class="banner-preview">
+          <BannerTile
+            v-if="bannerInfo.url"
+            :url="bannerInfo.url"
+            :fit="bannerDraftFit"
+            :position="bannerDraftPosition"
+          />
+        </div>
+
+        <div class="mt-6">
+          <div class="text-title-medium font-weight-medium text-on-surface mb-3">Масштаб</div>
+          <v-btn-toggle v-model="bannerDraftFit" mandatory color="primary" variant="outlined" divided>
+            <v-btn value="contain" class="text-none">Целиком</v-btn>
+            <v-btn value="cover" class="text-none">Заполнить</v-btn>
+          </v-btn-toggle>
+        </div>
+
+        <div class="mt-6">
+          <div class="text-title-medium font-weight-medium text-on-surface mb-1">Что оставить в кадре</div>
+          <div class="text-body-2 text-on-surface-variant mb-3">
+            Если пропорции картинки не совпадают с плиткой, выбери, какую часть оставить.
+          </div>
+          <div class="banner-anchor">
+            <button
+              v-for="p in BANNER_POSITIONS"
+              :key="p.value"
+              type="button"
+              class="banner-anchor__cell"
+              :class="{ 'banner-anchor__cell--active': bannerDraftPosition === p.value }"
+              :title="p.label"
+              :aria-label="p.label"
+              @click="bannerDraftPosition = p.value"
+            >
+              <span class="banner-anchor__dot"></span>
+            </button>
+          </div>
+        </div>
+
+        <div class="d-flex justify-end gap-4 mt-8">
+          <v-btn variant="text" class="text-none" @click="bannerDialog = false">Отмена</v-btn>
+          <v-btn
+            color="primary-container"
+            rounded="pill"
+            class="text-none font-weight-medium"
+            :loading="bannerSaving"
+            @click="saveBannerSettings"
+          >
+            <span class="text-on-primary-container">Сохранить</span>
+          </v-btn>
+        </div>
+      </div>
+    </v-dialog>
 
     <!-- ХРАНИЛИЩЕ (админ) -->
     <div v-if="isAdmin" class="m3-card m3-reveal pa-8 mb-8" style="--i: 2">
@@ -320,7 +391,9 @@ import {
   adminUpdateSettings,
   adminGetDisks,
   adminGetUserMigration,
+  getBannerInfo,
   uploadBanner,
+  updateBannerSettings,
   deleteBanner,
   ApiError,
   type AdminUser,
@@ -329,6 +402,9 @@ import {
   type StorageInfo,
   type Migration,
 } from '@/api'
+import BannerTile from '@/components/BannerTile.vue'
+import type { BannerFit, BannerInfo, BannerPosition } from '@/utils/banner'
+import { BANNER_POSITIONS } from '@/utils/banner'
 import { currentUser } from '@/store/auth'
 import { formatBytes } from '@/utils/format'
 import { ACCENTS, getAccentId, setAccentId, vuetifyThemeColors } from '@/utils/theme'
@@ -350,6 +426,21 @@ function pickBanner(): void {
   bannerInput.value?.click()
 }
 
+async function loadBanner(): Promise<void> {
+  try {
+    bannerInfo.value = await getBannerInfo()
+  } catch {
+    bannerInfo.value = { url: null, fit: 'contain', position: 'center' }
+  }
+}
+
+function openBannerDialog(): void {
+  if (!bannerInfo.value.url) return
+  bannerDraftFit.value = bannerInfo.value.fit
+  bannerDraftPosition.value = bannerInfo.value.position
+  bannerDialog.value = true
+}
+
 async function onBannerPick(e: Event): Promise<void> {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
@@ -358,7 +449,9 @@ async function onBannerPick(e: Event): Promise<void> {
   bannerUploading.value = true
   try {
     await uploadBanner(file)
-    notify('Баннер обновлён')
+    await loadBanner()
+    notify('Баннер загружен — выбери, как его показывать')
+    openBannerDialog()
   } catch (err) {
     notify(err instanceof ApiError ? err.message : 'Ошибка загрузки', 'error')
   } finally {
@@ -366,9 +459,32 @@ async function onBannerPick(e: Event): Promise<void> {
   }
 }
 
+async function saveBannerSettings(): Promise<void> {
+  bannerSaving.value = true
+  try {
+    await updateBannerSettings({
+      fit: bannerDraftFit.value,
+      position: bannerDraftPosition.value,
+    })
+    bannerInfo.value = {
+      ...bannerInfo.value,
+      fit: bannerDraftFit.value,
+      position: bannerDraftPosition.value,
+    }
+    bannerDialog.value = false
+    notify('Отображение баннера сохранено')
+  } catch (err) {
+    notify(err instanceof ApiError ? err.message : 'Ошибка сохранения', 'error')
+  } finally {
+    bannerSaving.value = false
+  }
+}
+
 async function removeBanner(): Promise<void> {
   try {
     await deleteBanner()
+    bannerInfo.value = { url: null, fit: 'contain', position: 'center' }
+    bannerDialog.value = false
     notify('Баннер удалён')
   } catch (err) {
     notify(err instanceof ApiError ? err.message : 'Ошибка', 'error')
@@ -385,6 +501,11 @@ const usingDisk = ref('')
 
 const bannerInput = ref<HTMLInputElement>()
 const bannerUploading = ref(false)
+const bannerInfo = ref<BannerInfo>({ url: null, fit: 'contain', position: 'center' })
+const bannerDialog = ref(false)
+const bannerDraftFit = ref<BannerFit>('contain')
+const bannerDraftPosition = ref<BannerPosition>('center')
+const bannerSaving = ref(false)
 
 const defaultQuotaInput = ref('')
 const storageDirInput = ref('')
@@ -562,6 +683,7 @@ onBeforeUnmount(() => {
 // ---------- КОНЕЦ БЛОКА ПЕРЕНОСА ----------
 
 async function load(): Promise<void> {
+  await loadBanner()
   try {
     ownStorage.value = await getStorage()
   } catch {
@@ -832,5 +954,56 @@ code {
 .mig-fill--failed {
   background: var(--md-sys-color-error, #b3261e);
   transition: none;
+}
+
+/* ── Настройка отображения баннера ── */
+.banner-preview {
+  position: relative;
+  height: 260px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: var(--md-sys-color-surface-container-highest);
+}
+.banner-anchor {
+  display: grid;
+  grid-template-columns: repeat(3, 44px);
+  gap: 8px;
+  width: max-content;
+}
+.banner-anchor__cell {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+  background: var(--md-sys-color-surface-container-highest);
+  cursor: pointer;
+  transition:
+    background-color 0.2s var(--m3-ease-standard),
+    border-color 0.2s var(--m3-ease-standard);
+}
+.banner-anchor__cell:hover {
+  background: var(--md-sys-color-surface-container-high);
+}
+.banner-anchor__cell--active {
+  border-color: var(--md-sys-color-primary);
+  background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+}
+.banner-anchor__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--md-sys-color-on-surface-variant);
+  transition:
+    width 0.2s var(--m3-ease-standard),
+    height 0.2s var(--m3-ease-standard),
+    background-color 0.2s var(--m3-ease-standard);
+}
+.banner-anchor__cell--active .banner-anchor__dot {
+  width: 12px;
+  height: 12px;
+  background: var(--md-sys-color-primary);
 }
 </style>

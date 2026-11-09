@@ -1,9 +1,13 @@
+import type { BannerFit, BannerInfo, BannerPosition } from '@/utils/banner'
+
 export interface User {
   id: number
   username: string
   quotaBytes: number
   isAdmin: boolean
   banner: boolean
+  bannerFit?: BannerFit
+  bannerPosition?: BannerPosition
 }
 
 export interface AdminUser {
@@ -388,15 +392,24 @@ export async function unpinNode(id: string): Promise<void> {
   await request(`/api/pins/${id}`, { method: 'DELETE' })
 }
 
-export async function getBannerUrl(): Promise<string | null> {
-  const res = await request<{ url: string | null }>('/api/banner-url', { method: 'POST' })
-  return res.url
+export async function getBannerInfo(): Promise<BannerInfo> {
+  return request<BannerInfo>('/api/banner-url', { method: 'POST' })
 }
 
 export async function uploadBanner(file: File): Promise<void> {
   const fd = new FormData()
   fd.append('banner', file, file.name)
   await request('/api/banner', { method: 'PUT', body: fd })
+}
+
+export async function updateBannerSettings(settings: {
+  fit: BannerFit
+  position: BannerPosition
+}): Promise<void> {
+  await request('/api/banner', {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  })
 }
 
 export async function deleteBanner(): Promise<void> {

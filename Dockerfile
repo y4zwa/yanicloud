@@ -35,6 +35,7 @@ COPY --from=backend-build /app/backend/node_modules ./node_modules
 COPY --from=backend-build /app/backend/dist ./dist
 COPY --from=backend-build /app/backend/package.json ./package.json
 COPY --from=frontend-build /app/frontend/dist ./public
+COPY LICENSE COPYRIGHT THIRD_PARTY_NOTICES.md ./
 
 ENV HOST=0.0.0.0
 ENV PORT=8080

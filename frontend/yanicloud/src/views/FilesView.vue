@@ -87,6 +87,8 @@
           :url="bannerUrl"
           :fit="bannerFit"
           :position="bannerPosition"
+          :crop="bannerCrop"
+          :zoom="bannerZoom"
         />
       </div>
     </div>
@@ -501,7 +503,9 @@ const favoritesCount = ref(0)
 const storage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, available: true, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
 const bannerUrl = ref<string | null>(null)
 const bannerFit = ref<BannerFit>('contain')
-const bannerPosition = ref<BannerPosition>('center')
+const bannerPosition = ref<BannerPosition>('50% 50%')
+const bannerCrop = ref<string | null>(null)
+const bannerZoom = ref(1)
 const loading = ref(true)
 const error = ref('')
 const loadedFolderKey = ref('')
@@ -884,6 +888,8 @@ async function load(): Promise<void> {
           bannerUrl.value = info.url
           bannerFit.value = info.fit
           bannerPosition.value = info.position
+          bannerCrop.value = info.crop ?? null
+          bannerZoom.value = info.zoom ?? 1
         })
         .catch(() => undefined)
     }

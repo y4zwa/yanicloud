@@ -8,6 +8,8 @@ export interface User {
   banner: boolean
   bannerFit?: BannerFit
   bannerPosition?: BannerPosition
+  bannerZoom?: number
+  bannerCrop?: string | null
 }
 
 export interface AdminUser {
@@ -405,6 +407,8 @@ export async function uploadBanner(file: File): Promise<void> {
 export async function updateBannerSettings(settings: {
   fit: BannerFit
   position: BannerPosition
+  zoom: number
+  crop: string | null
 }): Promise<void> {
   await request('/api/banner', {
     method: 'PATCH',

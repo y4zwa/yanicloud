@@ -81,7 +81,13 @@ if (!userCols.some((c) => c.name === 'banner_fit')) {
   db.exec("ALTER TABLE users ADD COLUMN banner_fit TEXT NOT NULL DEFAULT 'contain'")
 }
 if (!userCols.some((c) => c.name === 'banner_position')) {
-  db.exec("ALTER TABLE users ADD COLUMN banner_position TEXT NOT NULL DEFAULT 'center'")
+  db.exec("ALTER TABLE users ADD COLUMN banner_position TEXT NOT NULL DEFAULT '50% 50%'")
+}
+if (!userCols.some((c) => c.name === 'banner_zoom')) {
+  db.exec('ALTER TABLE users ADD COLUMN banner_zoom REAL NOT NULL DEFAULT 1')
+}
+if (!userCols.some((c) => c.name === 'banner_crop')) {
+  db.exec('ALTER TABLE users ADD COLUMN banner_crop TEXT')
 }
 
 const nodeCols = db.prepare('PRAGMA table_info(nodes)').all() as any[]

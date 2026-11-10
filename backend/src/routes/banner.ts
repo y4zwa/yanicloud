@@ -5,7 +5,12 @@ import sharp from 'sharp'
 import { db } from '../db.js'
 import { config } from '../config.js'
 import { requireAuth, fail, userIdOf } from '../auth.js'
-import { normalizeBannerFit, normalizeBannerPosition } from '../banner-settings.js'
+import {
+  normalizeBannerCrop,
+  normalizeBannerFit,
+  normalizeBannerPosition,
+  normalizeBannerZoom,
+} from '../banner-settings.js'
 
 const MAX_BANNER_BYTES = 25 * 1024 * 1024
 const MAX_BANNER_DIMENSION = 2560
@@ -144,14 +149,18 @@ export async function bannerRoutes(app: FastifyInstance): Promise<void> {
     const userId = userIdOf(req)
     const body = (req.body || {}) as any
     const current = db
-      .prepare('SELECT banner_fit, banner_position FROM users WHERE id = ?')
+      .prepare('SELECT banner_fit, banner_position, banner_zoom, banner_crop FROM users WHERE id = ?')
       .get(userId) as any
     const fit = normalizeBannerFit(body.fit === undefined ? current?.banner_fit : body.fit)
     const position = normalizeBannerPosition(
       body.position === undefined ? current?.banner_position : body.position
     )
-    db.prepare('UPDATE users SET banner_fit = ?, banner_position = ? WHERE id = ?').run(fit, position, userId)
-    return { ok: true, fit, position }
+    const zoom = normalizeBannerZoom(body.zoom === undefined ? current?.banner_zoom : body.zoom)
+    const crop = normalizeBannerCrop(body.crop === undefined ? current?.banner_crop : body.crop)
+    db.prepare(
+      'UPDATE users SET banner_fit = ?, banner_position = ?, banner_zoom = ?, banner_crop = ? WHERE id = ?'
+    ).run(fit, position, zoom, crop, userId)
+    return { ok: true, fit, position, zoom, crop }
   })
 
   app.delete('/api/banner', { preHandler: requireAuth }, async (req) => {
@@ -165,12 +174,14 @@ export async function bannerRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/banner-url', { preHandler: requireAuth }, async (req) => {
     const userId = userIdOf(req)
     const row = db
-      .prepare('SELECT banner, banner_fit, banner_position FROM users WHERE id = ?')
+      .prepare('SELECT banner, banner_fit, banner_position, banner_zoom, banner_crop FROM users WHERE id = ?')
       .get(userId) as any
     const fit = normalizeBannerFit(row?.banner_fit)
     const position = normalizeBannerPosition(row?.banner_position)
-    if (!row?.banner || !existingBanner(userId)) return { url: null, fit, position }
+    const zoom = normalizeBannerZoom(row?.banner_zoom)
+    const crop = normalizeBannerCrop(row?.banner_crop)
+    if (!row?.banner || !existingBanner(userId)) return { url: null, fit, position, zoom, crop }
     const token = app.jwt.sign({ sub: String(userId), kind: 'banner' }, { expiresIn: '12h' })
-    return { url: `/api/banner?t=${token}`, fit, position }
+    return { url: `/api/banner?t=${token}`, fit, position, zoom, crop }
   })
 }

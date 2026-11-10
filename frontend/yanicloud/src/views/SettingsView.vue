@@ -70,7 +70,8 @@
         </v-btn>
       </div>
       <div class="text-body-2 text-on-surface-variant mt-3">
-        После загрузки можно выбрать, показывать картинку целиком или заполнить плитку и какую часть кадра оставить.
+        После загрузки можно выбрать, показывать картинку целиком или заполнить плитку — тогда рамкой на картинке
+        отмечается, какая часть останется в кадре.
       </div>
       <input ref="bannerInput" type="file" accept="image/*" style="display: none" @change="onBannerPick" />
     </div>
@@ -80,12 +81,23 @@
       <div class="m3-dialog banner-dialog">
         <div class="text-h6 font-weight-medium text-on-surface mb-4">Отображение баннера</div>
 
-        <div class="banner-preview">
+        <BannerCropEditor
+          v-if="bannerInfo.url && bannerDraftFit === 'cover'"
+          :crop="bannerDraftCrop"
+          :position="bannerDraftPosition"
+          :zoom="bannerDraftZoom"
+          :url="bannerInfo.url"
+          :aspect="bannerCropAspect"
+          @update:crop="bannerDraftCrop = $event"
+        />
+        <div v-else class="banner-preview">
           <BannerTile
             v-if="bannerInfo.url"
             :url="bannerInfo.url"
             :fit="bannerDraftFit"
             :position="bannerDraftPosition"
+            :crop="bannerDraftCropValue"
+            :zoom="bannerDraftZoom"
           />
         </div>
 
@@ -97,25 +109,27 @@
           </v-btn-toggle>
         </div>
 
-        <div class="mt-6">
-          <div class="text-title-medium font-weight-medium text-on-surface mb-1">Что оставить в кадре</div>
-          <div class="text-body-2 text-on-surface-variant mb-3">
-            Если пропорции картинки не совпадают с плиткой, выбери, какую часть оставить.
+        <div class="mt-4 d-flex align-center flex-wrap" style="gap: 8px 16px">
+          <div class="text-body-2 text-on-surface-variant flex-grow-1" style="min-width: 240px">
+            <template v-if="bannerDraftFit === 'cover'">
+              Тяни стороны и уголки рамки — ширина и высота меняются независимо. Плитка сохраняет свои
+              пропорции, поэтому если рамка другой формы, по краям кадр аккуратно обрежется.
+              Стрелки на клавиатуре двигают рамку точнее.
+            </template>
+            <template v-else>
+              Картинка видна целиком. Чтобы выбрать кадр, переключи масштаб на «Заполнить».
+            </template>
           </div>
-          <div class="banner-anchor">
-            <button
-              v-for="p in BANNER_POSITIONS"
-              :key="p.value"
-              type="button"
-              class="banner-anchor__cell"
-              :class="{ 'banner-anchor__cell--active': bannerDraftPosition === p.value }"
-              :title="p.label"
-              :aria-label="p.label"
-              @click="bannerDraftPosition = p.value"
-            >
-              <span class="banner-anchor__dot"></span>
-            </button>
-          </div>
+          <v-btn
+            v-if="bannerDraftFit === 'cover'"
+            variant="text"
+            size="small"
+            class="text-none"
+            prepend-icon="mdi-restore"
+            @click="resetBannerFrame"
+          >
+            Сбросить
+          </v-btn>
         </div>
 
         <div class="d-flex justify-end gap-4 mt-8">
@@ -403,8 +417,9 @@ import {
   type Migration,
 } from '@/api'
 import BannerTile from '@/components/BannerTile.vue'
-import type { BannerFit, BannerInfo, BannerPosition } from '@/utils/banner'
-import { BANNER_POSITIONS } from '@/utils/banner'
+import BannerCropEditor from '@/components/BannerCropEditor.vue'
+import type { BannerCrop, BannerFit, BannerInfo, BannerPosition } from '@/utils/banner'
+import { formatBannerCrop, parseBannerCrop } from '@/utils/banner'
 import { currentUser } from '@/store/auth'
 import { formatBytes } from '@/utils/format'
 import { ACCENTS, getAccentId, setAccentId, vuetifyThemeColors } from '@/utils/theme'
@@ -428,16 +443,20 @@ function pickBanner(): void {
 
 async function loadBanner(): Promise<void> {
   try {
-    bannerInfo.value = await getBannerInfo()
+    const info = await getBannerInfo()
+    bannerInfo.value = { ...info, zoom: info.zoom ?? 1, crop: info.crop ?? null }
   } catch {
-    bannerInfo.value = { url: null, fit: 'contain', position: 'center' }
+    bannerInfo.value = { url: null, fit: 'contain', position: '50% 50%', zoom: 1, crop: null }
   }
 }
 
 function openBannerDialog(): void {
   if (!bannerInfo.value.url) return
+  updateBannerCropAspect()
   bannerDraftFit.value = bannerInfo.value.fit
   bannerDraftPosition.value = bannerInfo.value.position
+  bannerDraftZoom.value = bannerInfo.value.zoom ?? 1
+  bannerDraftCrop.value = parseBannerCrop(bannerInfo.value.crop)
   bannerDialog.value = true
 }
 
@@ -465,11 +484,15 @@ async function saveBannerSettings(): Promise<void> {
     await updateBannerSettings({
       fit: bannerDraftFit.value,
       position: bannerDraftPosition.value,
+      zoom: bannerDraftZoom.value,
+      crop: bannerDraftCropValue.value,
     })
     bannerInfo.value = {
       ...bannerInfo.value,
       fit: bannerDraftFit.value,
       position: bannerDraftPosition.value,
+      zoom: bannerDraftZoom.value,
+      crop: bannerDraftCropValue.value,
     }
     bannerDialog.value = false
     notify('Отображение баннера сохранено')
@@ -483,7 +506,7 @@ async function saveBannerSettings(): Promise<void> {
 async function removeBanner(): Promise<void> {
   try {
     await deleteBanner()
-    bannerInfo.value = { url: null, fit: 'contain', position: 'center' }
+    bannerInfo.value = { url: null, fit: 'contain', position: '50% 50%', zoom: 1, crop: null }
     bannerDialog.value = false
     notify('Баннер удалён')
   } catch (err) {
@@ -501,11 +524,32 @@ const usingDisk = ref('')
 
 const bannerInput = ref<HTMLInputElement>()
 const bannerUploading = ref(false)
-const bannerInfo = ref<BannerInfo>({ url: null, fit: 'contain', position: 'center' })
+const bannerInfo = ref<BannerInfo>({ url: null, fit: 'contain', position: '50% 50%', zoom: 1, crop: null })
 const bannerDialog = ref(false)
 const bannerDraftFit = ref<BannerFit>('contain')
-const bannerDraftPosition = ref<BannerPosition>('center')
+const bannerDraftPosition = ref<BannerPosition>('50% 50%')
+const bannerDraftZoom = ref(1)
+const bannerDraftCrop = ref<BannerCrop | null>(null)
+const bannerCropAspect = ref(1.8)
 const bannerSaving = ref(false)
+
+const bannerDraftCropValue = computed(() =>
+  bannerDraftCrop.value ? formatBannerCrop(bannerDraftCrop.value) : null
+)
+
+/* Рамка кадра повторяет форму плитки баннера на главной: 440px в высоту,
+   ширина = вьюпорт − меню (96) − отступы контейнера (96) − карточка текста (460) − зазор (32).
+   Нужно только для начального кадра старых баннеров и превью «Целиком». */
+function updateBannerCropAspect(): void {
+  const tileWidth = window.innerWidth - 684
+  bannerCropAspect.value = Math.min(4, Math.max(0.9, tileWidth / 440))
+}
+
+function resetBannerFrame(): void {
+  bannerDraftCrop.value = null
+  bannerDraftPosition.value = '50% 50%'
+  bannerDraftZoom.value = 1
+}
 
 const defaultQuotaInput = ref('')
 const storageDirInput = ref('')
@@ -679,6 +723,7 @@ const willMigrate = computed(() => {
 
 onBeforeUnmount(() => {
   if (pollTimer !== null) clearTimeout(pollTimer)
+  window.removeEventListener('resize', updateBannerCropAspect)
 })
 // ---------- КОНЕЦ БЛОКА ПЕРЕНОСА ----------
 
@@ -814,7 +859,11 @@ async function doDeleteUser(): Promise<void> {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  window.addEventListener('resize', updateBannerCropAspect)
+  updateBannerCropAspect()
+  void load()
+})
 </script>
 
 <style scoped>
@@ -957,53 +1006,15 @@ code {
 }
 
 /* ── Настройка отображения баннера ── */
+.banner-dialog {
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
 .banner-preview {
   position: relative;
-  height: 260px;
+  height: 320px;
   border-radius: 24px;
   overflow: hidden;
   background: var(--md-sys-color-surface-container-highest);
-}
-.banner-anchor {
-  display: grid;
-  grid-template-columns: repeat(3, 44px);
-  gap: 8px;
-  width: max-content;
-}
-.banner-anchor__cell {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: 12px;
-  background: var(--md-sys-color-surface-container-highest);
-  cursor: pointer;
-  transition:
-    background-color 0.2s var(--m3-ease-standard),
-    border-color 0.2s var(--m3-ease-standard);
-}
-.banner-anchor__cell:hover {
-  background: var(--md-sys-color-surface-container-high);
-}
-.banner-anchor__cell--active {
-  border-color: var(--md-sys-color-primary);
-  background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
-}
-.banner-anchor__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--md-sys-color-on-surface-variant);
-  transition:
-    width 0.2s var(--m3-ease-standard),
-    height 0.2s var(--m3-ease-standard),
-    background-color 0.2s var(--m3-ease-standard);
-}
-.banner-anchor__cell--active .banner-anchor__dot {
-  width: 12px;
-  height: 12px;
-  background: var(--md-sys-color-primary);
 }
 </style>

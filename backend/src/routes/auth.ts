@@ -2,7 +2,12 @@ import type { FastifyInstance } from 'fastify'
 import { db, getDefaultQuota } from '../db.js'
 import { hashPassword, verifyPassword } from '../password.js'
 import { requireAuth, fail } from '../auth.js'
-import { normalizeBannerFit, normalizeBannerPosition } from '../banner-settings.js'
+import {
+  normalizeBannerCrop,
+  normalizeBannerFit,
+  normalizeBannerPosition,
+  normalizeBannerZoom,
+} from '../banner-settings.js'
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
 
@@ -15,6 +20,8 @@ function publicUser(row: any) {
     banner: row.banner === 1,
     bannerFit: normalizeBannerFit(row.banner_fit),
     bannerPosition: normalizeBannerPosition(row.banner_position),
+    bannerZoom: normalizeBannerZoom(row.banner_zoom),
+    bannerCrop: normalizeBannerCrop(row.banner_crop),
   }
 }
 

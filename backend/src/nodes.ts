@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { db, rowToNode, resolveUserFilesDir } from './db.js'
+import { clearNodesCache } from './cache.js'
 import type { Node } from './types.js'
 
 export function getNode(userId: number, id: string): Node | null {
@@ -105,10 +106,10 @@ export function permanentDelete(userId: number, id: string): void {
     `WITH RECURSIVE descendants(id) AS (
        SELECT id FROM nodes WHERE id = ? AND user_id = ?
        UNION ALL
-       SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id
+       SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id WHERE n.user_id = ?
      )
      SELECT id, storage_key, type FROM nodes WHERE id IN (SELECT id FROM descendants)`
-  ).all(id, userId) as any[]
+  ).all(id, userId, userId) as any[]
 
   const ids: string[] = []
   // Файлы пользователя могут лежать в его собственном каталоге (storage_path),
@@ -121,6 +122,8 @@ export function permanentDelete(userId: number, id: string): void {
       fs.rmSync(path.join(dir, r.storage_key), { force: true })
     }
   }
+
+  clearNodesCache(ids)
   
   if (ids.length) {
     const deleteStmt = db.prepare('DELETE FROM nodes WHERE id = ?')
@@ -131,9 +134,58 @@ export function permanentDelete(userId: number, id: string): void {
   }
 }
 
+/** Мягко удаляет узел вместе со всем поддеревом — дети не остаются «живыми». */
+export function trashNode(userId: number, id: string, at: number): void {
+  db.prepare(
+    `WITH RECURSIVE descendants(id) AS (
+       SELECT id FROM nodes WHERE id = ? AND user_id = ?
+       UNION ALL
+       SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id WHERE n.user_id = ?
+     )
+     UPDATE nodes SET deleted_at = ?, updated_at = ? WHERE id IN (SELECT id FROM descendants)`
+  ).run(id, userId, userId, at, at)
+}
+
+export function restoreNode(userId: number, id: string): void {
+  const node = getNode(userId, id)
+  if (!node) return
+
+  let parentId = node.parentId
+  if (parentId) {
+    const parent = getNode(userId, parentId)
+    if (!parent || parent.deletedAt) parentId = null
+  }
+
+  const now = Date.now()
+  const restore = db.transaction(() => {
+    db.prepare(
+      `WITH RECURSIVE descendants(id) AS (
+         SELECT id FROM nodes WHERE id = ? AND user_id = ?
+         UNION ALL
+         SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id WHERE n.user_id = ?
+       )
+       UPDATE nodes SET deleted_at = NULL, updated_at = ? WHERE id IN (SELECT id FROM descendants)`
+    ).run(id, userId, userId, now)
+
+    if (parentId !== node.parentId) {
+      db.prepare('UPDATE nodes SET parent_id = ? WHERE id = ?').run(parentId, id)
+    }
+  })
+  restore()
+}
+
 export function purgeTrash(retentionDays: number): number {
   const cutoff = Date.now() - retentionDays * 86400000
-  const rows = db.prepare('SELECT id, user_id FROM nodes WHERE deleted_at IS NOT NULL AND deleted_at < ?').all(cutoff) as any[]
+  // удаляем только корни корзины: permanentDelete сам обойдёт всё поддерево
+  const rows = db
+    .prepare(
+      `SELECT n.id, n.user_id FROM nodes n
+       WHERE n.deleted_at IS NOT NULL AND n.deleted_at < ?
+         AND NOT EXISTS (
+           SELECT 1 FROM nodes p WHERE p.id = n.parent_id AND p.deleted_at IS NOT NULL
+         )`
+    )
+    .all(cutoff) as any[]
   let purged = 0
   for (const r of rows) {
     try {
@@ -150,10 +202,11 @@ export function purgeTrash(retentionDays: number): number {
 
 export function deleteUserFiles(userId: number): void {
   const rows = db.prepare(
-    "SELECT storage_key FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL"
+    "SELECT id, storage_key FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL"
   ).all(userId) as any[]
   const dir = resolveUserFilesDir(userId)
   for (const r of rows) {
     if (r.storage_key) fs.rmSync(path.join(dir, r.storage_key), { force: true })
   }
+  clearNodesCache(rows.map((r) => r.id))
 }

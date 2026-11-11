@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify'
 import { db, getDefaultQuota } from '../db.js'
 import { hashPassword, verifyPassword } from '../password.js'
 import { requireAuth, fail } from '../auth.js'
+import { config } from '../config.js'
+import { allowRequest } from '../rate-limit.js'
 import {
   normalizeBannerCrop,
   normalizeBannerFit,
@@ -10,6 +12,7 @@ import {
 } from '../banner-settings.js'
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
+const SESSION_TTL = '30d'
 
 function publicUser(row: any) {
   return {
@@ -27,6 +30,15 @@ function publicUser(row: any) {
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/auth/register', async (req, reply) => {
+    if (!allowRequest(`register:${req.ip}`, 5, 10 * 60_000)) {
+      return fail(reply, 429, 'Слишком много попыток регистрации, попробуйте позже')
+    }
+
+    const userCount = db.prepare('SELECT COUNT(*) AS c FROM users').get() as any
+    // первый пользователь создаётся всегда, иначе нужен явный флаг
+    if ((userCount?.c ?? 0) > 0 && !config.registrationEnabled) {
+      return fail(reply, 403, 'Регистрация закрыта. Новых пользователей создаёт администратор.')
+    }
     const body = req.body as any
     const username = String(body?.username ?? '').trim()
     const password = String(body?.password ?? '')
@@ -41,33 +53,38 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const exists = db.prepare('SELECT id FROM users WHERE username = ?').get(username) as any
     if (exists) return fail(reply, 409, 'Такой пользователь уже существует')
 
-    const hash = hashPassword(password)
+    const hash = await hashPassword(password)
     const now = Date.now()
     const info = db
       .prepare('INSERT INTO users (username, password_hash, quota_bytes, created_at) VALUES (?, ?, ?, ?)')
       .run(username, hash, getDefaultQuota(), now)
 
-    const userCount = db.prepare('SELECT COUNT(*) AS c FROM users').get() as any
-    if (userCount?.c === 1) {
+    // пересчитываем после вставки: при гонке двух первых регистраций админом станет только один
+    const totalUsers = db.prepare('SELECT COUNT(*) AS c FROM users').get() as any
+    if (totalUsers?.c === 1) {
       db.prepare('UPDATE users SET is_admin = 1, quota_bytes = 0 WHERE id = ?').run(info.lastInsertRowid)
     }
 
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid) as any
-    const token = app.jwt.sign({ sub: String(row.id), username: row.username })
+    const token = app.jwt.sign({ sub: String(row.id), username: row.username }, { expiresIn: SESSION_TTL })
     return { token, user: publicUser(row) }
   })
 
   app.post('/api/auth/login', async (req, reply) => {
+    if (!allowRequest(`login:${req.ip}`, 20, 5 * 60_000)) {
+      return fail(reply, 429, 'Слишком много попыток входа, попробуйте через несколько минут')
+    }
+
     const body = req.body as any
     const username = String(body?.username ?? '').trim()
     const password = String(body?.password ?? '')
 
     const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as any
-    if (!row || !verifyPassword(password, row.password_hash)) {
+    if (!row || !(await verifyPassword(password, row.password_hash))) {
       return fail(reply, 401, 'Неверный логин или пароль')
     }
 
-    const token = app.jwt.sign({ sub: String(row.id), username: row.username })
+    const token = app.jwt.sign({ sub: String(row.id), username: row.username }, { expiresIn: SESSION_TTL })
     return { token, user: publicUser(row) }
   })
 

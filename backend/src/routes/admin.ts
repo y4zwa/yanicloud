@@ -79,11 +79,12 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const storagePath =
       body?.storagePath && String(body.storagePath).trim() !== '' ? String(body.storagePath).trim() : null
     const now = Date.now()
+    const passwordHash = await hashPassword(password)
     const info = db
       .prepare(
         'INSERT INTO users (username, password_hash, quota_bytes, is_admin, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run(username, hashPassword(password), quota, isAdmin, storagePath, now)
+      .run(username, passwordHash, quota, isAdmin, storagePath, now)
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid) as any
     return { user: serializeUser(row) }
   })
@@ -115,7 +116,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         return fail(reply, 400, 'Пароль должен быть от 6 до 128 символов')
       }
       updates.push('password_hash = ?')
-      params.push(hashPassword(password))
+      params.push(await hashPassword(password))
     }
 
     if (updates.length > 0) {

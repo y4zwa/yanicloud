@@ -2,8 +2,11 @@ import fs from 'node:fs'
 import { execFile } from 'node:child_process'
 import sharp from 'sharp'
 import { parseFile } from 'music-metadata'
+import { createLimiter } from './limits.js'
 
 export type ThumbResult = 'ok' | 'none' | 'error'
+
+const videoLimit = createLimiter(2)
 
 async function sharpThumb(src: string | Buffer, dst: string): Promise<void> {
   await sharp(src).rotate().resize(640, 640, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 82 }).toFile(dst)
@@ -43,7 +46,7 @@ export async function generateThumb(kind: 'image' | 'video' | 'audio', src: stri
       return 'ok'
     }
     if (kind === 'video') {
-      await extractVideoFrame(src, dst)
+      await videoLimit(() => extractVideoFrame(src, dst))
       return 'ok'
     }
     if (kind === 'audio') {

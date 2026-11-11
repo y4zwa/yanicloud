@@ -137,18 +137,21 @@ async function copyTree(from: string, to: string, job: MigrationJob): Promise<vo
 
 
 async function verifyTree(from: string, to: string): Promise<void> {
-  const src = new Map<string, number>()
+  const src = new Map<string, { size: number; mtimeMs: number }>()
   await walkFiles(from, async (rel, _abs, st) => {
-    src.set(rel, st.size)
+    src.set(rel, { size: st.size, mtimeMs: st.mtimeMs })
   })
-  const dst = new Map<string, number>()
+  const dst = new Map<string, { size: number; mtimeMs: number }>()
   await walkFiles(to, async (rel, _abs, st) => {
-    dst.set(rel, st.size)
+    dst.set(rel, { size: st.size, mtimeMs: st.mtimeMs })
   })
-  for (const [rel, size] of src) {
+  for (const [rel, want] of src) {
     const got = dst.get(rel)
     if (got === undefined) throw new Error(`Файл не скопирован: ${rel}`)
-    if (got !== size) throw new Error(`Файл скопирован не полностью: ${rel}`)
+    if (got.size !== want.size) throw new Error(`Файл скопирован не полностью: ${rel}`)
+    if (Math.abs(got.mtimeMs - want.mtimeMs) > 1000) {
+      throw new Error(`У файла не совпадает время изменения: ${rel}`)
+    }
   }
 }
 

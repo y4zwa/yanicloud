@@ -11,6 +11,7 @@ services:
       - DATA_DIR=/data
       - DEFAULT_QUOTA_BYTES=75161927680
       - TRASH_RETENTION_DAYS=30
+      - REGISTRATION_ENABLED=false
     volumes:
       - ./data:/data
       - /mnt:/mnt

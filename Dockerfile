@@ -6,7 +6,7 @@ WORKDIR /app/frontend
 COPY frontend/yanicloud/package.json frontend/yanicloud/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/yanicloud/ ./
-RUN npm run build-only
+RUN npm run build
 
 # ---------- Backend build ----------
 FROM node:22-slim AS backend-build
@@ -14,7 +14,7 @@ WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY backend/ ./
-RUN npm run build && npm prune --omit=dev
+RUN npm run build
 
 # ---------- Runtime ----------
 FROM node:22-slim
@@ -41,6 +41,7 @@ ENV HOST=0.0.0.0
 ENV PORT=8080
 ENV DATA_DIR=/data
 ENV PUBLIC_DIR=/app/public
+ENV REGISTRATION_ENABLED=false
 
 VOLUME ["/data"]
 EXPOSE 8080

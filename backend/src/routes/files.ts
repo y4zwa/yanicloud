@@ -5,7 +5,7 @@ import { pipeline } from 'node:stream/promises'
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { db, rowToNode, toPublic, getCacheDir, getUserFilesDir, isStorageError } from '../db.js'
-import { requireAuth, fail, userIdOf } from '../auth.js'
+import { requireAuth, fail, userIdOf, isUserToken } from '../auth.js'
 import { classify } from '../filekind.js'
 import { convertToPdf } from '../convert.js'
 import { generateThumb } from '../thumbs.js'
@@ -23,6 +23,8 @@ import {
   createFolder,
   createFile,
   permanentDelete,
+  trashNode,
+  restoreNode,
 } from '../nodes.js'
 
 const LIST_SQL = `
@@ -55,6 +57,10 @@ function streamInline(reply: FastifyReply, req: FastifyRequest, filePath: string
   reply.header('Accept-Ranges', 'bytes')
   reply.header('Content-Type', contentType)
   reply.header('Content-Disposition', 'inline')
+  // SVG, открытый как документ, может исполнить скрипт на нашем origin.
+  if (contentType === 'image/svg+xml') {
+    reply.header('Content-Security-Policy', 'sandbox')
+  }
 
   const range = req.headers.range
   if (range) {
@@ -101,6 +107,11 @@ async function mediaAuth(
   try {
     await req.jwtVerify()
   } catch {
+    fail(reply, 401, 'Unauthorized')
+    return null
+  }
+  // медиа-токен не должен работать как обычный Bearer даже на медиа-ручках
+  if (!isUserToken(req)) {
     fail(reply, 401, 'Unauthorized')
     return null
   }
@@ -151,25 +162,43 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     const userId = userIdOf(req)
     const q = String((req.query as any).q ?? '').trim()
     if (!q) return { items: [] }
+    // % и _ в запросе — обычные символы, а не wildcard
+    const escaped = q.replace(/[\\%_]/g, (char) => `\\${char}`)
     const rows = db
       .prepare(
         "SELECT * FROM nodes WHERE user_id = ? AND deleted_at IS NULL AND name LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT 50"
       )
-      .all(userId, `%${q}%`)
+      .all(userId, `%${escaped}%`)
     return { items: rows.map(rowToNode).map(toPublic) }
   })
 
   app.get('/api/files/trash', { preHandler: requireAuth }, async (req) => {
     const userId = userIdOf(req)
+    // показываем только корни корзины: дети удалённой папки не должны висеть отдельными строками
     const rows = db
-      .prepare('SELECT * FROM nodes WHERE user_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC')
+      .prepare(
+        `SELECT n.* FROM nodes n
+         WHERE n.user_id = ? AND n.deleted_at IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM nodes p WHERE p.id = n.parent_id AND p.deleted_at IS NOT NULL
+           )
+         ORDER BY n.deleted_at DESC`
+      )
       .all(userId)
     return { items: rows.map(rowToNode).map(toPublic) }
   })
 
   app.delete('/api/files/trash', { preHandler: requireAuth }, async (req) => {
     const userId = userIdOf(req)
-    const rows = db.prepare('SELECT id FROM nodes WHERE user_id = ? AND deleted_at IS NOT NULL').all(userId) as any[]
+    const rows = db
+      .prepare(
+        `SELECT n.id FROM nodes n
+         WHERE n.user_id = ? AND n.deleted_at IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM nodes p WHERE p.id = n.parent_id AND p.deleted_at IS NOT NULL
+           )`
+      )
+      .all(userId) as any[]
     for (const r of rows) permanentDelete(userId, r.id)
     return { ok: true }
   })
@@ -231,13 +260,24 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
           await pipeline(part.file, counter, fs.createWriteStream(fullPath))
         } catch (err: any) {
           fs.rmSync(fullPath, { force: true })
+          if (err?.code === 'ENOSPC') {
+            quotaErr = 'На диске закончилось место'
+            break
+          }
           if (err.message === 'QUOTA_EXCEEDED' || quotaExceeded) {
             quotaErr = 'Недостаточно места в хранилище'
             break 
           }
           throw err
         }
-        
+
+        // повторная проверка после записи: параллельные загрузки не должны пробивать квоту
+        if (quota > 0 && usedBytes(userId) + size > quota) {
+          fs.rmSync(fullPath, { force: true })
+          quotaErr = 'Недостаточно места в хранилище'
+          break
+        }
+
         const node = createFile(userId, parentId, name, size, part.mimetype || null, storageKey)
         created.push(toPublic(node))
       }
@@ -273,7 +313,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
 
     const { kind, mime } = classify(node.name, node.mimeType)
     if (kind === 'office') {
-      const pdfPath = path.join(getCacheDir(), `${node.id}.${node.updatedAt}.pdf`)
+      const pdfPath = path.join(getCacheDir(), `${node.id}.pdf`)
       if (!fs.existsSync(pdfPath)) {
         try {
           await convertToPdf(fullPath, pdfPath, path.extname(node.name).toLowerCase())
@@ -321,7 +361,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     const fullPath = path.join(getUserFilesDir(userId), node.storageKey)
     if (!fs.existsSync(fullPath)) return fail(reply, 404, 'Файл не найден')
 
-    const thumbPath = path.join(getCacheDir(), `${node.id}.${node.updatedAt}.thumb.jpg`)
+    const thumbPath = path.join(getCacheDir(), `${node.id}.thumb.jpg`)
     if (!fs.existsSync(thumbPath)) {
       const tmpPath = `${thumbPath}.tmp.jpg`
       const result = await generateThumb(kind, fullPath, tmpPath)
@@ -360,7 +400,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     const fullPath = path.join(getUserFilesDir(userId), node.storageKey)
     if (!fs.existsSync(fullPath)) return fail(reply, 404, 'Файл не найден')
 
-    const coverPath = path.join(getCacheDir(), `${node.id}.${node.updatedAt}.cover.jpg`)
+    const coverPath = path.join(getCacheDir(), `${node.id}.cover.jpg`)
     if (!fs.existsSync(coverPath)) {
       const tmpPath = `${coverPath}.tmp.jpg`
       const ok = await extractCover(fullPath, tmpPath)
@@ -495,8 +535,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as any
     const node = getNode(userId, id)
     if (!node) return fail(reply, 404, 'Не найдено')
-    const now = Date.now()
-    db.prepare('UPDATE nodes SET deleted_at = ?, updated_at = ? WHERE id = ?').run(now, now, id)
+    trashNode(userId, id, Date.now())
     return { ok: true }
   })
 
@@ -514,17 +553,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as any
     const node = getNode(userId, id)
     if (!node || !node.deletedAt) return fail(reply, 404, 'Не найдено')
-
-    let parentId = node.parentId
-    if (parentId) {
-      const p = getNode(userId, parentId)
-      if (!p || p.deletedAt) parentId = null
-    }
-    db.prepare('UPDATE nodes SET deleted_at = NULL, parent_id = ?, updated_at = ? WHERE id = ?').run(
-      parentId,
-      Date.now(),
-      id
-    )
+    restoreNode(userId, id)
     return { ok: true }
   })
 }

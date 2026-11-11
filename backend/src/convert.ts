@@ -3,8 +3,16 @@ import path from 'node:path'
 import os from 'node:os'
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { createLimiter } from './limits.js'
+
+// не даём десятку одновременных запросов поднять десяток soffice
+const convertLimit = createLimiter(2)
 
 export function convertToPdf(src: string, dst: string, ext: string): Promise<void> {
+  return convertLimit(() => doConvertToPdf(src, dst, ext))
+}
+
+function doConvertToPdf(src: string, dst: string, ext: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const tmp = path.join(os.tmpdir(), `lo_${randomUUID()}`)
     fs.mkdirSync(tmp, { recursive: true })

@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify'
 import sharp from 'sharp'
 import { db } from '../db.js'
 import { config } from '../config.js'
-import { requireAuth, fail, userIdOf } from '../auth.js'
+import { requireAuth, fail, userIdOf, isUserToken } from '../auth.js'
 import {
   normalizeBannerCrop,
   normalizeBannerFit,
@@ -129,7 +129,7 @@ export async function bannerRoutes(app: FastifyInstance): Promise<void> {
     } else {
       try {
         await req.jwtVerify()
-        userId = userIdOf(req)
+        if (isUserToken(req)) userId = userIdOf(req)
       } catch {
         /* ignore */
       }

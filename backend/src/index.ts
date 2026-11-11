@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import Fastify from 'fastify'
 import jwt from '@fastify/jwt'
 import multipart from '@fastify/multipart'
@@ -13,6 +14,7 @@ import { adminRoutes } from './routes/admin.js'
 import { pinsRoutes } from './routes/pins.js'
 import { bannerRoutes } from './routes/banner.js'
 import { purgeTrash } from './nodes.js'
+import { cleanupCache } from './cache.js'
 
 const GIB = 1024 ** 3
 
@@ -36,15 +38,27 @@ export function buildApp() {
   })
 
   app.addHook('onRequest', async (req, reply) => {
-    reply.header('Access-Control-Allow-Origin', '*')
-    reply.header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
-    reply.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
+    reply.header('X-Content-Type-Options', 'nosniff')
+    // CORS нужен только если фронт открывают с другого origin (например, в dev без прокси).
+    if (config.corsOrigin) {
+      reply.header('Access-Control-Allow-Origin', config.corsOrigin)
+      reply.header('Vary', 'Origin')
+      reply.header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+      reply.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS')
+    }
     if (req.method === 'OPTIONS') {
       reply.code(204).send()
     }
   })
 
   app.setErrorHandler((err, req, reply) => {
+    if ((err as any)?.code === 'ENOSPC') {
+      req.log.warn({ err }, 'disk full')
+      return reply.code(507).send({
+        error: 'На диске закончилось место',
+        code: 'ENOSPC',
+      })
+    }
     if (isStorageError(err)) {
       req.log.warn({ err }, 'storage unavailable')
       return reply.code(503).send({
@@ -108,19 +122,33 @@ export function startPurgeLoop(): void {
     } catch (err) {
       console.error('[trash] purge failed', err)
     }
+    try {
+      const removed = cleanupCache()
+      if (removed > 0) console.log(`[cache] removed ${removed} stale file(s)`)
+    } catch (err) {
+      console.error('[cache] cleanup failed', err)
+    }
   }
   run()
   setInterval(run, 60 * 60 * 1000)
 }
 
-const app = buildApp()
+// Запускаем сервер только если файл является точкой входа:
+// так модуль можно импортировать в тестах, не поднимая порт.
+const isEntrypoint = process.argv[1]
+  ? pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url
+  : false
 
-app
-  .listen({ host: config.host, port: config.port })
-  .then(() => {
-    startPurgeLoop()
-  })
-  .catch((err) => {
-    app.log.error(err)
-    process.exit(1)
-  })
+if (isEntrypoint) {
+  const app = buildApp()
+
+  app
+    .listen({ host: config.host, port: config.port })
+    .then(() => {
+      startPurgeLoop()
+    })
+    .catch((err) => {
+      app.log.error(err)
+      process.exit(1)
+    })
+}

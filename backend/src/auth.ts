@@ -1,12 +1,27 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { db } from './db.js'
 
+/**
+ * Медиа-токены (`kind: thumb/stream/download/cover/banner`) подписаны тем же
+ * секретом, поэтому их нельзя пускать в обычный API: `jwtVerify` сам по себе
+ * не отличает такой токен от токена входа.
+ */
+function isUserToken(req: FastifyRequest): boolean {
+  const user = (req as any).user
+  if (!user || user.kind) return false
+  const id = Number(user.sub)
+  return Number.isInteger(id) && id > 0
+}
+
+export { isUserToken }
+
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   try {
     await req.jwtVerify()
   } catch {
-    reply.code(401).send({ error: 'Unauthorized' })
+    return void reply.code(401).send({ error: 'Unauthorized' })
   }
+  if (!isUserToken(req)) return void reply.code(401).send({ error: 'Unauthorized' })
 }
 
 export function userIdOf(req: FastifyRequest): number {
@@ -26,12 +41,13 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply): Pr
   try {
     await req.jwtVerify()
   } catch {
-    return reply.code(401).send({ error: 'Unauthorized' })
+    return void reply.code(401).send({ error: 'Unauthorized' })
   }
+  if (!isUserToken(req)) return void reply.code(401).send({ error: 'Unauthorized' })
   const id = userIdOf(req)
   const row = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(id) as any
   if (!row?.is_admin) {
-    return reply.code(403).send({ error: 'Требуются права администратора' })
+    return void reply.code(403).send({ error: 'Требуются права администратора' })
   }
 }
 

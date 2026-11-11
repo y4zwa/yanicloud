@@ -14,7 +14,7 @@ WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY backend/ ./
-RUN npm run build
+RUN npm run build && node --test
 
 # ---------- Backend production deps ----------
 FROM node:22-slim AS backend-deps

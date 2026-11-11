@@ -32,7 +32,7 @@ function isGif(buf: Buffer): boolean {
 async function saveStill(buf: Buffer, dst: string): Promise<void> {
   const tmp = `${dst}.tmp`
   try {
-    await sharp(buf)
+    await sharp(buf, { limitInputPixels: 100_000_000 })
       .rotate()
       .resize(MAX_BANNER_DIMENSION, MAX_BANNER_DIMENSION, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 88 })
@@ -52,7 +52,7 @@ async function saveStill(buf: Buffer, dst: string): Promise<void> {
 async function saveAnimated(buf: Buffer, dst: string): Promise<void> {
   const tmp = `${dst}.tmp`
   try {
-    await sharp(buf, { animated: true })
+    await sharp(buf, { animated: true, limitInputPixels: 100_000_000 })
       .resize(MAX_BANNER_DIMENSION, MAX_BANNER_DIMENSION, {
         fit: 'inside',
         withoutEnlargement: true,

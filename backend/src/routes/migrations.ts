@@ -4,7 +4,8 @@ import type { Dirent, Stats } from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import { db, getUserFilesDir, resolveFilesDir } from '../db.js'
-import { diskInfo } from '../disk.js'           
+import { diskInfo } from '../disk.js'
+import { config } from '../config.js'
 
 export type MigrationStatus =
   | 'preparing'
@@ -32,6 +33,27 @@ export interface MigrationJob {
 const ACTIVE_STATUSES: MigrationStatus[] = ['preparing', 'copying', 'verifying', 'switching', 'resyncing', 'cleaning']
 
 const jobs = new Map<number, MigrationJob>()
+
+const MARKER_DIR = path.join(config.dataDir, 'migrations')
+
+interface MigrationMarker {
+  userId: number
+  fromDir: string
+  toDir: string
+  keys: string[]
+}
+
+async function writeMarker(marker: MigrationMarker): Promise<void> {
+  await fsp.mkdir(MARKER_DIR, { recursive: true })
+  const file = path.join(MARKER_DIR, `${marker.userId}.json`)
+  const tmp = `${file}.tmp`
+  await fsp.writeFile(tmp, JSON.stringify(marker), 'utf8')
+  await fsp.rename(tmp, file)
+}
+
+async function removeMarker(userId: number): Promise<void> {
+  await fsp.rm(path.join(MARKER_DIR, `${userId}.json`), { force: true })
+}
 
 export function getMigrationJob(userId: number): MigrationJob | null {
   return jobs.get(userId) ?? null
@@ -131,14 +153,13 @@ async function copyUserFiles(
   job: MigrationJob,
   copied: Set<string>
 ): Promise<void> {
-  job.copiedBytes = 0
   for (const file of files) {
     const src = path.join(fromDir, file.key)
     const dst = path.join(toDir, file.key)
     const st = await fsp.stat(src)
     const existing = await fsp.stat(dst).catch(() => null)
     if (existing && existing.size === st.size && Math.abs(existing.mtimeMs - st.mtimeMs) <= 1000) {
-      job.copiedBytes += st.size
+      job.copiedBytes = Math.min(job.totalBytes, job.copiedBytes + st.size)
       continue
     }
     const tmp = `${dst}.mig-tmp`
@@ -146,7 +167,7 @@ async function copyUserFiles(
     await fsp.utimes(tmp, st.atime, st.mtime)
     await fsp.rename(tmp, dst)
     copied.add(file.key)
-    job.copiedBytes += st.size
+    job.copiedBytes = Math.min(job.totalBytes, job.copiedBytes + st.size)
   }
 }
 
@@ -212,11 +233,22 @@ export async function startUserMigration(userId: number, newStoragePath: string 
   // Список файлов берём из БД: в общем каталоге лежат UUID всех пользователей,
   // переносить и удалять можно только свои.
   const files = userFiles(userId)
+  const missing: string[] = []
   let totalBytes = 0
   for (const file of files) {
     const st = await fsp.stat(path.join(fromDir, file.key)).catch(() => null)
-    if (!st?.isFile()) throw new Error(`Файл из базы не найден на диске: ${file.key}`)
+    if (!st?.isFile()) {
+      missing.push(file.key)
+      continue
+    }
     totalBytes += st.size
+  }
+  if (missing.length) {
+    const preview = missing.slice(0, 5).join(', ')
+    throw new Error(
+      `На диске не хватает файлов из базы (${missing.length}): ${preview}${missing.length > 5 ? ' …' : ''}. ` +
+        'Восстановите их или удалите записи, затем повторите перенос.'
+    )
   }
 
   await fsp.mkdir(toDir, { recursive: true })
@@ -266,17 +298,25 @@ async function runMigration(
     job.fromDir = fromDir
     job.toDir = toDir
 
+    await writeMarker({ userId, fromDir, toDir, keys: files.map((file) => file.key) })
+
     job.status = 'copying'
+    job.copiedBytes = 0
     await copyUserFiles(fromDir, toDir, files, job, copied)
     await verifyUserFiles(fromDir, toDir, files)
 
     job.status = 'switching'
+    const beforeSwitch = userFiles(userId)
+    // маркер пишем до переключения: если процесс упадёт сразу после UPDATE,
+    // при следующем старте поймём по storage_path, что чистить старый каталог
+    await writeMarker({ userId, fromDir, toDir, keys: beforeSwitch.map((file) => file.key) })
     db.prepare('UPDATE users SET storage_path = ? WHERE id = ?').run(newPathValue, userId)
     switched = true
+    const latest = userFiles(userId)
+    await writeMarker({ userId, fromDir, toDir, keys: latest.map((file) => file.key) })
 
     job.status = 'resyncing'
     // пока шла копия, могли дописаться файлы — добираем их по свежему списку из БД
-    const latest = userFiles(userId)
     await copyUserFiles(fromDir, toDir, latest, job, copied)
     await verifyUserFiles(fromDir, toDir, latest)
 
@@ -284,6 +324,7 @@ async function runMigration(
     cleaning = true
     // удаляем только файлы этого пользователя, а не весь (возможно общий) каталог
     await removeUserFiles(fromDir, latest)
+    await removeMarker(userId)
 
     job.status = 'done'
   } catch (err: any) {
@@ -298,6 +339,7 @@ async function runMigration(
         // до очистки не дошли: возвращаем пользователя на старый каталог, он цел
         db.prepare('UPDATE users SET storage_path = ? WHERE id = ?').run(previousPathValue, userId)
         job.backupDir = job.toDir
+        await removeMarker(userId).catch(() => {})
       }
     } else {
       // убираем только свои копии; чужое содержимое и целевую папку не трогаем
@@ -305,9 +347,61 @@ async function runMigration(
         await fsp.rm(path.join(job.toDir, key), { force: true }).catch(() => {})
         await fsp.rm(path.join(job.toDir, `${key}.mig-tmp`), { force: true }).catch(() => {})
       }
+      await removeMarker(userId).catch(() => {})
     }
   } finally {
     job.finishedAt = Date.now()
+  }
+}
+
+/**
+ * Если процесс упал между переключением storage_path и очисткой старого каталога,
+ * доделываем очистку при следующем старте: удаляем только свои ключи, и только
+ * если в новом каталоге есть проверенная копия.
+ */
+export async function recoverMigrations(): Promise<void> {
+  let entries: string[]
+  try {
+    entries = await fsp.readdir(MARKER_DIR)
+  } catch {
+    return
+  }
+  for (const name of entries) {
+    if (!name.endsWith('.json')) continue
+    const file = path.join(MARKER_DIR, name)
+    let marker: MigrationMarker
+    try {
+      marker = JSON.parse(await fsp.readFile(file, 'utf8'))
+    } catch {
+      continue
+    }
+    try {
+      const row = db.prepare('SELECT storage_path FROM users WHERE id = ?').get(marker.userId) as any
+      const own = typeof row?.storage_path === 'string' ? row.storage_path.trim() : ''
+      const currentRaw = path.resolve(own || resolveFilesDir())
+      const current = await fsp.realpath(currentRaw).catch(() => currentRaw)
+      if (current !== path.resolve(marker.toDir)) {
+        // переключения не было: удаляем недокопированные копии из целевого каталога,
+        // исходные файлы не трогаем
+        for (const key of marker.keys) {
+          await fsp.rm(path.join(marker.toDir, key), { force: true }).catch(() => {})
+          await fsp.rm(path.join(marker.toDir, `${key}.mig-tmp`), { force: true }).catch(() => {})
+        }
+        await fsp.rm(file, { force: true })
+        continue
+      }
+      for (const key of marker.keys) {
+        const st = await fsp.stat(path.join(marker.toDir, key)).catch(() => null)
+        if (!st?.isFile()) throw new Error(`нет копии ${key} в ${marker.toDir}`)
+      }
+      for (const key of marker.keys) {
+        await fsp.rm(path.join(marker.fromDir, key), { force: true })
+      }
+      await fsp.rm(file, { force: true })
+      console.log(`[migration] завершена очистка старого каталога пользователя ${marker.userId}`)
+    } catch (err) {
+      console.error(`[migration] не удалось завершить очистку ${file}:`, err)
+    }
   }
 }
 

@@ -16,6 +16,12 @@ RUN npm ci --no-audit --no-fund
 COPY backend/ ./
 RUN npm run build
 
+# ---------- Backend production deps ----------
+FROM node:22-slim AS backend-deps
+WORKDIR /app/backend
+COPY backend/package.json backend/package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
+
 # ---------- Runtime ----------
 FROM node:22-slim
 ENV NODE_ENV=production
@@ -31,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=backend-build /app/backend/node_modules ./node_modules
+COPY --from=backend-deps /app/backend/node_modules ./node_modules
 COPY --from=backend-build /app/backend/dist ./dist
 COPY --from=backend-build /app/backend/package.json ./package.json
 COPY --from=frontend-build /app/frontend/dist ./public

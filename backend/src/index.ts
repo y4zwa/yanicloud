@@ -15,11 +15,13 @@ import { pinsRoutes } from './routes/pins.js'
 import { bannerRoutes } from './routes/banner.js'
 import { purgeTrash } from './nodes.js'
 import { cleanupCache } from './cache.js'
+import { recoverMigrations } from './routes/migrations.js'
 
 const GIB = 1024 ** 3
 
 export function buildApp() {
   const app = Fastify({
+    trustProxy: config.trustProxy,
     logger: {
       level: 'info',
       serializers: {
@@ -144,7 +146,8 @@ if (isEntrypoint) {
 
   app
     .listen({ host: config.host, port: config.port })
-    .then(() => {
+    .then(async () => {
+      await recoverMigrations().catch((err) => app.log.error(err))
       startPurgeLoop()
     })
     .catch((err) => {

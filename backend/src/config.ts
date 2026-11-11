@@ -32,6 +32,8 @@ export const config = {
   // регистрация закрыта по умолчанию: первый пользователь создаётся всегда,
   // остальные — только при REGISTRATION_ENABLED=true (или через админку)
   registrationEnabled: boolEnv('REGISTRATION_ENABLED', false),
+  // если приложение стоит за доверенным реверс-прокси, включаем доверие X-Forwarded-For
+  trustProxy: boolEnv('TRUST_PROXY', false),
   // CORS не нужен, когда фронт раздаётся с того же origin. Пусто — заголовки не отдаём.
   corsOrigin: env('CORS_ORIGIN', '').trim(),
 }

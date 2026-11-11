@@ -287,7 +287,7 @@ async function fromLrclib(
 }
 
 function cachePath(node: Node): string {
-  return path.join(getCacheDir(), `lyrics-${node.id}-${node.updatedAt}.json`)
+  return path.join(getCacheDir(), `lyrics-${node.id}.json`)
 }
 
 function readCache(node: Node): LyricsResult | null {

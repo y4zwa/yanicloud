@@ -8,7 +8,7 @@ export async function extractCover(src: string, dst: string): Promise<boolean> {
     const meta = await parseFile(src)
     const pic = meta.common.picture?.[0]
     if (!pic?.data) return false
-    await sharp(Buffer.from(pic.data))
+    await sharp(Buffer.from(pic.data), { limitInputPixels: 100_000_000 })
       .rotate()
       .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 92 })

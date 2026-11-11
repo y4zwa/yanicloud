@@ -19,10 +19,12 @@ export function clearNodesCache(ids: Iterable<string>): void {
 
   for (const name of entries) {
     let nodeId: string | null = null
-    if (name.startsWith('lyrics-')) {
-      // lyrics-<uuid>-<updatedAt>.json
-      const match = /^lyrics-(.+)-\d+\.json$/.exec(name)
-      if (match) nodeId = match[1]
+    if (name.startsWith('lyrics-') && name.endsWith('.json')) {
+      // lyrics-<uuid>.json или старый lyrics-<uuid>-<updatedAt>.json
+      const rest = name.slice('lyrics-'.length, -'.json'.length)
+      if (rest.length === 36 || (rest.length > 37 && rest[36] === '-')) {
+        nodeId = rest.slice(0, 36)
+      }
     } else {
       // <uuid>.thumb.jpg / <uuid>.pdf / <uuid>.cover.jpg
       const dot = name.indexOf('.')

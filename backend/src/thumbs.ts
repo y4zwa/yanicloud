@@ -6,10 +6,19 @@ import { createLimiter } from './limits.js'
 
 export type ThumbResult = 'ok' | 'none' | 'error'
 
+// не даём libvips занять все ядра и память при пачке превью
+sharp.concurrency(2)
+
+const MAX_INPUT_PIXELS = 100_000_000
+
 const videoLimit = createLimiter(2)
 
 async function sharpThumb(src: string | Buffer, dst: string): Promise<void> {
-  await sharp(src).rotate().resize(640, 640, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 82 }).toFile(dst)
+  await sharp(src, { limitInputPixels: MAX_INPUT_PIXELS })
+    .rotate()
+    .resize(640, 640, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 82 })
+    .toFile(dst)
 }
 
 function extractVideoFrame(src: string, dst: string): Promise<void> {

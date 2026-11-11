@@ -44,6 +44,10 @@ docker compose up -d --build
 | --- | --- |
 | <img src="screenshots/screenshot-2.png" width="420"> | <img src="screenshots/screenshot-3.png" width="420"> |
 
+| Обрезка баннера на главной | Текст песни в плеере |
+| --- | --- |
+| <img src="screenshots/screenshot-4.png" width="420"> | <img src="screenshots/screenshot-5.png" width="420"> |
+
 ## Настройка
 
 Переменные окружения (задаются в `compose.yaml`):

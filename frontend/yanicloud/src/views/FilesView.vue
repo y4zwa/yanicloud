@@ -50,7 +50,7 @@
             <span class="text-primary">{{ currentUser?.username || 'друг' }}</span>
           </h1>
           <p class="text-title-medium text-on-surface-variant mb-10 hero-subtitle m3-reveal" style="line-height: 1.6; --i: 1">
-            Храните, делитесь и работайте из любой точки мира. Безопасно и быстро.
+            Личное хранилище на вашем сервере. Всё под рукой и под контролем.
           </p>
           <div class="d-flex align-center gap-4 mt-auto m3-reveal" style="--i: 2">
             <v-btn

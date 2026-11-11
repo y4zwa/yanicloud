@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import type { Dirent, Stats } from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import { db, getUserFilesDir } from '../db.js'   
+import { db, getUserFilesDir, resolveFilesDir } from '../db.js'
 import { diskInfo } from '../disk.js'           
 
 export type MigrationStatus =
@@ -29,7 +29,6 @@ export interface MigrationJob {
   finishedAt: number | null
 }
 
-const MARKER = '.storage-migration.json'
 const ACTIVE_STATUSES: MigrationStatus[] = ['preparing', 'copying', 'verifying', 'switching', 'resyncing', 'cleaning']
 
 const jobs = new Map<number, MigrationJob>()
@@ -113,26 +112,60 @@ export async function dirSize(root: string): Promise<number> {
   return total
 }
 
-async function copyTree(from: string, to: string, job: MigrationJob): Promise<void> {
-  await fsp.mkdir(to, { recursive: true })
-  await walkFiles(from, async (rel, abs, st) => {
-    const dst = path.join(to, rel)
-    await fsp.mkdir(path.dirname(dst), { recursive: true })
-    let alreadyCopied = false
-    try {
-      const d = await fsp.stat(dst)
-      alreadyCopied = d.size === st.size && Math.abs(d.mtimeMs - st.mtimeMs) < 1000
-    } catch {
+type UserFile = { key: string; size: number }
 
+/** Только файлы этого пользователя: общий каталог может содержать чужие UUID. */
+function userFiles(userId: number): UserFile[] {
+  const rows = db
+    .prepare(
+      "SELECT storage_key, size FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL"
+    )
+    .all(userId) as any[]
+  return rows.map((row) => ({ key: row.storage_key, size: Number(row.size) || 0 }))
+}
+
+async function copyUserFiles(
+  fromDir: string,
+  toDir: string,
+  files: UserFile[],
+  job: MigrationJob,
+  copied: Set<string>
+): Promise<void> {
+  job.copiedBytes = 0
+  for (const file of files) {
+    const src = path.join(fromDir, file.key)
+    const dst = path.join(toDir, file.key)
+    const st = await fsp.stat(src)
+    const existing = await fsp.stat(dst).catch(() => null)
+    if (existing && existing.size === st.size && Math.abs(existing.mtimeMs - st.mtimeMs) <= 1000) {
+      job.copiedBytes += st.size
+      continue
     }
-    if (!alreadyCopied) {
-      const tmp = `${dst}.mig-tmp`
-      await fsp.copyFile(abs, tmp)
-      await fsp.utimes(tmp, st.atime, st.mtime) 
-      await fsp.rename(tmp, dst)
-    }
+    const tmp = `${dst}.mig-tmp`
+    await fsp.copyFile(src, tmp)
+    await fsp.utimes(tmp, st.atime, st.mtime)
+    await fsp.rename(tmp, dst)
+    copied.add(file.key)
     job.copiedBytes += st.size
-  })
+  }
+}
+
+async function verifyUserFiles(fromDir: string, toDir: string, files: UserFile[]): Promise<void> {
+  for (const file of files) {
+    const src = await fsp.stat(path.join(fromDir, file.key)).catch(() => null)
+    const dst = await fsp.stat(path.join(toDir, file.key)).catch(() => null)
+    if (!src || !dst) throw new Error(`Файл не скопирован: ${file.key}`)
+    if (dst.size !== src.size || Math.abs(dst.mtimeMs - src.mtimeMs) > 1000) {
+      throw new Error(`Файл скопирован не полностью: ${file.key}`)
+    }
+  }
+}
+
+/** Удаляет только файлы этого пользователя. Каталог (в т.ч. общий) не трогаем. */
+async function removeUserFiles(fromDir: string, files: UserFile[]): Promise<void> {
+  for (const file of files) {
+    await fsp.rm(path.join(fromDir, file.key), { force: true })
+  }
 }
 
 
@@ -156,38 +189,6 @@ async function verifyTree(from: string, to: string): Promise<void> {
 }
 
 
-async function syncTrees(from: string, to: string, job: MigrationJob, attempts = 3): Promise<void> {
-  for (let i = 1; ; i++) {
-    await copyTree(from, to, job)
-    try {
-      await verifyTree(from, to)
-      return
-    } catch (err) {
-      if (i >= attempts) throw err
-      await new Promise((r) => setTimeout(r, 1000 * i))
-    }
-  }
-}
-
-
-function peekUserFilesDir(userId: number, storagePath: string | null): string {
-  const row = db.prepare('SELECT storage_path FROM users WHERE id = ?').get(userId) as any
-  db.prepare('UPDATE users SET storage_path = ? WHERE id = ?').run(storagePath, userId)
-  try {
-    return path.resolve(getUserFilesDir(userId))
-  } finally {
-    db.prepare('UPDATE users SET storage_path = ? WHERE id = ?').run(row?.storage_path ?? null, userId)
-  }
-}
-
-async function readMarker(toDir: string): Promise<{ userId: number; fromDir: string } | null> {
-  try {
-    return JSON.parse(await fsp.readFile(path.join(toDir, MARKER), 'utf8'))
-  } catch {
-    return null
-  }
-}
-
 // ---------- перенос файлов пользователя ----------
 
 export async function startUserMigration(userId: number, newStoragePath: string | null): Promise<MigrationJob> {
@@ -197,7 +198,8 @@ export async function startUserMigration(userId: number, newStoragePath: string 
   if (!user) throw new Error('Пользователь не найден')
 
   const fromDir = path.resolve(getUserFilesDir(userId))
-  const toDir = path.resolve(peekUserFilesDir(userId, newStoragePath))
+  const target = newStoragePath?.trim() ? newStoragePath.trim() : resolveFilesDir()
+  const toDir = path.resolve(target)
 
   if (fromDir === toDir) throw new Error('Старая и новая директории совпадают')
   if (isWithin(toDir, fromDir) || isWithin(fromDir, toDir)) {
@@ -207,27 +209,30 @@ export async function startUserMigration(userId: number, newStoragePath: string 
   const fromSt = await fsp.stat(fromDir).catch(() => null)
   if (!fromSt?.isDirectory()) throw new Error(`Директория пользователя не найдена: ${fromDir}`)
 
-
-  let resume = false
-  const existing = await fsp.readdir(toDir).catch((err: any) => {
-    if (err?.code === 'ENOENT') return null
-    throw new Error(`Целевая директория недоступна: ${err?.message ?? err}`)
-  })
-  if (existing !== null && existing.length > 0) {
-    const marker = await readMarker(toDir)
-    if (!marker || marker.userId !== userId || marker.fromDir !== fromDir) {
-      throw new Error(`Целевая директория не пуста: ${toDir}`)
-    }
-    resume = true
+  // Список файлов берём из БД: в общем каталоге лежат UUID всех пользователей,
+  // переносить и удалять можно только свои.
+  const files = userFiles(userId)
+  let totalBytes = 0
+  for (const file of files) {
+    const st = await fsp.stat(path.join(fromDir, file.key)).catch(() => null)
+    if (!st?.isFile()) throw new Error(`Файл из базы не найден на диске: ${file.key}`)
+    totalBytes += st.size
   }
+
   await fsp.mkdir(toDir, { recursive: true })
+  const free = diskInfo(toDir).free
+  if (files.length && free > 0 && free < totalBytes + 64 * 1024 * 1024) {
+    throw new Error(
+      `Недостаточно места в целевой папке: нужно ${totalBytes} байт, свободно ${free} байт`
+    )
+  }
 
   const job: MigrationJob = {
     userId,
     fromDir,
     toDir,
     status: 'preparing',
-    totalBytes: 0,
+    totalBytes,
     copiedBytes: 0,
     error: null,
     backupDir: null,
@@ -236,17 +241,22 @@ export async function startUserMigration(userId: number, newStoragePath: string 
   }
   jobs.set(userId, job)
 
-
-  void runMigration(job, newStoragePath, resume).catch(() => { })
+  void runMigration(job, files, newStoragePath, user.storage_path ?? null).catch(() => {})
   return job
 }
 
-async function runMigration(job: MigrationJob, newPathValue: string | null, resume: boolean): Promise<void> {
+async function runMigration(
+  job: MigrationJob,
+  files: UserFile[],
+  newPathValue: string | null,
+  previousPathValue: string | null
+): Promise<void> {
   const { userId } = job
   let switched = false
+  let cleaning = false
+  const copied = new Set<string>()
   try {
     job.status = 'preparing'
-
 
     const fromDir = await fsp.realpath(job.fromDir)
     const toDir = await fsp.realpath(job.toDir)
@@ -256,40 +266,24 @@ async function runMigration(job: MigrationJob, newPathValue: string | null, resu
     job.fromDir = fromDir
     job.toDir = toDir
 
-    job.totalBytes = await dirSize(fromDir)
-
-    if (!resume) {
-
-      const sameDev = (await fsp.stat(path.dirname(toDir))).dev === (await fsp.stat(fromDir)).dev
-      if (sameDev && (await fsp.readdir(toDir)).length === 0) {
-        await fsp.rename(fromDir, toDir)
-        db.prepare('UPDATE users SET storage_path = ? WHERE id = ?').run(newPathValue, userId)
-        switched = true
-        job.copiedBytes = job.totalBytes
-        job.status = 'done'
-        return
-      }
-
-      await fsp.writeFile(
-        path.join(toDir, MARKER),
-        JSON.stringify({ userId, fromDir, startedAt: Date.now() }),
-        'utf8',
-      )
-    }
-
     job.status = 'copying'
-    await syncTrees(fromDir, toDir, job)
+    await copyUserFiles(fromDir, toDir, files, job, copied)
+    await verifyUserFiles(fromDir, toDir, files)
 
     job.status = 'switching'
     db.prepare('UPDATE users SET storage_path = ? WHERE id = ?').run(newPathValue, userId)
     switched = true
 
     job.status = 'resyncing'
-    await syncTrees(fromDir, toDir, job)
+    // пока шла копия, могли дописаться файлы — добираем их по свежему списку из БД
+    const latest = userFiles(userId)
+    await copyUserFiles(fromDir, toDir, latest, job, copied)
+    await verifyUserFiles(fromDir, toDir, latest)
 
     job.status = 'cleaning'
-    await fsp.rm(fromDir, { recursive: true, force: true })
-    await fsp.unlink(path.join(toDir, MARKER)).catch(() => {})
+    cleaning = true
+    // удаляем только файлы этого пользователя, а не весь (возможно общий) каталог
+    await removeUserFiles(fromDir, latest)
 
     job.status = 'done'
   } catch (err: any) {
@@ -297,9 +291,20 @@ async function runMigration(job: MigrationJob, newPathValue: string | null, resu
     job.status = 'failed'
     console.error(`[migration] Перенос файлов пользователя ${userId} не удался:`, err)
     if (switched) {
-      job.backupDir = job.fromDir
+      if (cleaning) {
+        // копия уже проверена, чистим только источник — оставляем БД на новом месте
+        job.backupDir = job.fromDir
+      } else {
+        // до очистки не дошли: возвращаем пользователя на старый каталог, он цел
+        db.prepare('UPDATE users SET storage_path = ? WHERE id = ?').run(previousPathValue, userId)
+        job.backupDir = job.toDir
+      }
     } else {
-      await fsp.rm(job.toDir, { recursive: true, force: true }).catch(() => {})
+      // убираем только свои копии; чужое содержимое и целевую папку не трогаем
+      for (const key of copied) {
+        await fsp.rm(path.join(job.toDir, key), { force: true }).catch(() => {})
+        await fsp.rm(path.join(job.toDir, `${key}.mig-tmp`), { force: true }).catch(() => {})
+      }
     }
   } finally {
     job.finishedAt = Date.now()
@@ -312,6 +317,19 @@ export async function moveStorageRoot(from: string, to: string): Promise<void> {
   }
   const fromSt = await fsp.stat(from).catch(() => null)
   if (!fromSt?.isDirectory()) return // переносить нечего
+
+  // если у кого-то личный каталог лежит внутри общего, перенос общего его сломает
+  const personal = db
+    .prepare("SELECT id, storage_path FROM users WHERE storage_path IS NOT NULL AND TRIM(storage_path) != ''")
+    .all() as any[]
+  for (const user of personal) {
+    if (isWithin(path.resolve(user.storage_path), from)) {
+      throw new Error(
+        `Нельзя перенести общее хранилище: у пользователя ${user.id} личный каталог внутри него. ` +
+          'Сначала перенесите или очистите его личный путь.'
+      )
+    }
+  }
 
   await fsp.mkdir(to, { recursive: true })
   const toSt = await fsp.stat(to)

@@ -26,6 +26,7 @@ import {
   trashNode,
   restoreNode,
 } from '../nodes.js'
+import { isMigrationActive } from './migrations.js'
 
 const LIST_SQL = `
   SELECT n.*,
@@ -221,6 +222,9 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
 
   app.post('/api/files/upload', { preHandler: requireAuth }, async (req, reply) => {
     const userId = userIdOf(req)
+    if (isMigrationActive(userId)) {
+      return fail(reply, 423, 'Идёт перенос файлов, загрузка временно недоступна')
+    }
     const query = req.query as any
     let parentId: string | null = null
     try {

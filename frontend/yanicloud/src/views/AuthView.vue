@@ -5,7 +5,7 @@
         <v-icon icon="mdi-cloud" color="primary" size="64"></v-icon>
       </div>
       <h1 class="auth-title">YaniCloud</h1>
-      <p class="auth-subtitle">С возвращением! Войдите в аккаунт.</p>
+      <p class="auth-subtitle">{{ subtitle }}</p>
 
       <v-form class="m3-reveal" style="--i: 2" @submit.prevent="submit">
         <v-text-field
@@ -25,7 +25,7 @@
           prepend-inner-icon="mdi-lock-outline"
           :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
           @click:append-inner="showPassword = !showPassword"
-          autocomplete="current-password"
+          :autocomplete="mode === 'register' ? 'new-password' : 'current-password'"
           class="mb-6"
           :rules="[rules.required]"
           @keyup.enter="submit"
@@ -47,35 +47,78 @@
           class="auth-submit"
         >
           <span class="text-on-primary-container text-title-medium font-weight-medium text-none">
-            Войти
+            {{ mode === 'register' ? 'Создать аккаунт' : 'Войти' }}
           </span>
         </v-btn>
       </v-form>
+
+      <div v-if="registrationOpen" class="auth-switch">
+        <v-btn
+          variant="text"
+          size="small"
+          rounded="pill"
+          class="text-none"
+          @click="switchMode(mode === 'login' ? 'register' : 'login')"
+        >
+          {{ mode === 'login' ? 'Создать аккаунт' : 'У меня уже есть аккаунт' }}
+        </v-btn>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { login, ApiError } from '@/api'
+import { computed, onMounted, ref } from 'vue'
+import { getAuthConfig, login, register, ApiError } from '@/api'
 import { setUser } from '@/store/auth'
 
 const emit = defineEmits<{ (e: 'authed'): void }>()
+
+type Mode = 'login' | 'register'
 
 const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
+const mode = ref<Mode>('login')
+const registrationOpen = ref(false)
+const hasUsers = ref(true)
+
+const subtitle = computed(() => {
+  if (mode.value === 'register') {
+    return hasUsers.value ? 'Создайте аккаунт.' : 'Первый аккаунт станет администратором.'
+  }
+  return 'С возвращением! Войдите в аккаунт.'
+})
 
 const rules = { required: (v: string) => !!v || 'Обязательное поле' }
+
+onMounted(async () => {
+  try {
+    const config = await getAuthConfig()
+    registrationOpen.value = config.registrationOpen
+    hasUsers.value = config.hasUsers
+    if (config.registrationOpen && !config.hasUsers) mode.value = 'register'
+  } catch {
+    /* если настройки недоступны, остаёмся на обычном входе */
+  }
+})
+
+function switchMode(next: Mode): void {
+  mode.value = next
+  error.value = ''
+}
 
 async function submit(): Promise<void> {
   if (!username.value || !password.value) return
   loading.value = true
   error.value = ''
   try {
-    const res = await login(username.value.trim(), password.value)
+    const res =
+      mode.value === 'register'
+        ? await register(username.value.trim(), password.value)
+        : await login(username.value.trim(), password.value)
     setUser(res.user)
     emit('authed')
   } catch (e) {

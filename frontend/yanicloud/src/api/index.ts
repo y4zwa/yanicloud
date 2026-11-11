@@ -156,6 +156,15 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return (await res.json()) as T
 }
 
+export interface AuthConfig {
+  hasUsers: boolean
+  registrationOpen: boolean
+}
+
+export function getAuthConfig(): Promise<AuthConfig> {
+  return request<AuthConfig>('/api/auth/config')
+}
+
 export async function register(username: string, password: string): Promise<{ token: string; user: User }> {
   const res = await request<{ token: string; user: User }>('/api/auth/register', {
     method: 'POST',

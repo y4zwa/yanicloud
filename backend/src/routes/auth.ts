@@ -29,6 +29,13 @@ function publicUser(row: any) {
 }
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/auth/config', async () => {
+    const row = db.prepare('SELECT COUNT(*) AS c FROM users').get() as any
+    const hasUsers = (row?.c ?? 0) > 0
+    // первый пользователь может зарегистрироваться всегда, дальше — только по флагу
+    return { hasUsers, registrationOpen: !hasUsers || config.registrationEnabled }
+  })
+
   app.post('/api/auth/register', async (req, reply) => {
     if (!allowRequest(`register:${req.ip}`, 5, 10 * 60_000)) {
       return fail(reply, 429, 'Слишком много попыток регистрации, попробуйте позже')

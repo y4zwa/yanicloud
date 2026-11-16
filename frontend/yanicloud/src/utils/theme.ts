@@ -243,7 +243,31 @@ export function applyAccent(id: string): AccentScheme {
   r.setProperty('--md-sys-color-outline-rgb', scheme.outlineRgb)
   r.setProperty('--md-sys-color-primary-rgb', scheme.primaryRgb)
 
+  setFavicon(palette.primary)
+
   return scheme
+}
+
+/**
+ * Иконка вкладки перекрашивается вместе с акцентом: сервер отдаёт ту же SVG
+ * с цветом в query. data:-URL для этого не годится — Chrome такие иконки игнорирует
+ * и продолжает показывать старую (проверено на закреплённых ярлыках).
+ */
+function setFavicon(color: string): void {
+  if (typeof document === 'undefined') return
+  const hex = color.replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return
+
+  // Cookie нужна, чтобы /icon.svg отдавал акцентный цвет уже на первой загрузке:
+  // её (а не смену <link> из JS) кешируют закреплённые ярлыки браузера.
+  document.cookie = `yc_accent=${hex}; path=/; max-age=31536000; samesite=lax`
+
+  for (const link of document.querySelectorAll<HTMLLinkElement>('link[rel="icon"]')) {
+    const isPng = link.type === 'image/png'
+    const size = (link.getAttribute('sizes') ?? '180x180').split('x')[0] || '180'
+    const href = isPng ? `/icon.png?s=${size}&c=${hex}` : `/icon.svg?c=${hex}`
+    if (link.getAttribute('href') !== href) link.setAttribute('href', href)
+  }
 }
 
 /** Цвета для Vuetify: оба варианта ключей, чтобы компоненты не оставались фиолетовыми. */
@@ -272,3 +296,5 @@ export function vuetifyThemeColors(scheme: AccentScheme): Record<string, string>
     'outline-variant': scheme.outlineVariant,
   }
 }
+
+

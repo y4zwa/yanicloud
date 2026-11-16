@@ -281,6 +281,7 @@
                 </template>
                 <v-list density="comfortable" class="nunito-scope">
                   <v-list-item prepend-icon="mdi-folder-open-outline" title="Открыть" @click="openFolder(folder)"></v-list-item>
+                  <v-divider></v-divider>
                   <v-list-item
                     :prepend-icon="folder.isFavorite ? 'mdi-star-off' : 'mdi-star-outline'"
                     :title="folder.isFavorite ? 'Убрать из избранного' : 'В избранное'"

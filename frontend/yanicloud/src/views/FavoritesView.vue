@@ -51,6 +51,7 @@
                 title="Убрать из избранного"
                 @click="unfavorite(item)"
               ></v-list-item>
+              <v-divider></v-divider>
               <v-list-item v-if="item.type === 'file'" prepend-icon="mdi-download" title="Скачать" @click="download(item)"></v-list-item>
               <v-list-item v-if="item.type === 'file'" prepend-icon="mdi-information-outline" title="Подробности" @click="openDetails(item)"></v-list-item>
               <v-list-item v-else prepend-icon="mdi-folder-open-outline" title="Открыть" @click="open(item)"></v-list-item>

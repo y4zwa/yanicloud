@@ -537,25 +537,37 @@ img {
 
 /* МЕНЮ (M3 Expressive: крупные радиусы, «пилюли» у пунктов) */
 .m3-menu {
-  border-radius: 28px !important;
+  border-radius: 24px !important;
   background-color: var(--md-sys-color-surface-container-high) !important;
   box-shadow: var(--md-sys-elevation-3) !important;
-  padding: 10px !important;
-  min-width: 252px;
+  padding: 6px !important;
+  /* ширина по содержимому: фиксированные 252 оставляли пустую полосу справа */
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: 340px !important;
 }
-.m3-menu .v-list { background: transparent !important; padding: 0 !important; }
+.m3-menu .v-list {
+  background: transparent !important;
+  padding: 0 !important;
+  /* ширина по самому длинному пункту, но не меньше панели */
+  width: max-content !important;
+  min-width: 100% !important;
+  /* Vuetify вешает на список внутри меню свою тень и радиус: она рисовалась внутри панели
+     второй рамкой вокруг пунктов. Панель уже даёт и фон, и скругление. */
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
 .m3-menu .v-list-item {
-  min-height: 52px;
+  min-height: 44px;
   border-radius: 999px !important;
-  padding-inline: 16px 20px !important;
-  margin: 2px 0;
+  padding-inline: 14px 18px !important;
   transition: background-color 0.16s var(--m3-ease-standard);
 }
 .m3-menu .v-list-item:hover,
 .m3-menu .v-list-item--active { background-color: var(--md-sys-color-surface-container-highest) !important; }
-.m3-menu .v-list-item-title { font-size: 14px; font-weight: 500; }
-.m3-menu .v-list-item__prepend > .v-icon { font-size: 22px; opacity: 0.85; }
-.m3-menu .v-divider { margin: 8px 12px; border-color: var(--md-sys-color-outline-variant); opacity: 0.6; }
+.m3-menu .v-list-item-title { font-size: 13.5px; font-weight: 500; }
+.m3-menu .v-list-item__prepend > .v-icon { font-size: 21px; opacity: 0.85; }
+.m3-menu .v-divider { margin: 4px 12px; border-color: var(--md-sys-color-outline-variant); opacity: 0.45; }
 /* «Удалить» — единственный пункт, который что-то уничтожает */
 .m3-menu .m3-menu-danger .v-list-item-title { color: var(--md-sys-color-error, #b3261e); }
 .m3-menu .m3-menu-danger .v-icon { color: var(--md-sys-color-error, #b3261e) !important; opacity: 1; }

@@ -378,10 +378,13 @@ watch(() => props.node.id, load, { immediate: true })
 }
 .details-row {
   display: grid;
-  grid-template-columns: 1fr 1.25fr 20px;
+  /* Кнопка «копировать» не занимает колонку: иначе справа оставался пустой желоб,
+     и весь текст уезжал влево относительно плашки. Она висит в отступе справа. */
+  grid-template-columns: 1fr 1.25fr;
   gap: 10px;
   align-items: start;
   padding: 5px 0;
+  position: relative;
 }
 .details-label {
   font-size: 13px;
@@ -405,6 +408,10 @@ watch(() => props.node.id, load, { immediate: true })
   display: flex;
   align-items: center;
   transition: opacity 0.15s;
+  /* в желобе справа, вне текстовой сетки — так строки выровнены симметрично */
+  position: absolute;
+  right: -20px;
+  top: 4px;
 }
 .details-row:hover .details-copy {
   opacity: 1;

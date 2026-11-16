@@ -41,6 +41,7 @@
               title="Подробности"
               @click="emit('details')"
             ></v-list-item>
+            <v-divider></v-divider>
             <v-list-item prepend-icon="mdi-pencil-outline" title="Переименовать" @click="emit('rename')"></v-list-item>
             <v-divider></v-divider>
             <v-list-item
@@ -57,6 +58,7 @@
               title="Подробности"
               @click="emit('details')"
             ></v-list-item>
+            <v-divider></v-divider>
             <v-list-item
               prepend-icon="mdi-eye-off-outline"
               title="Скрыть из недавних"

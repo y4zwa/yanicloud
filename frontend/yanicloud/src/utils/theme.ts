@@ -296,5 +296,3 @@ export function vuetifyThemeColors(scheme: AccentScheme): Record<string, string>
     'outline-variant': scheme.outlineVariant,
   }
 }
-
-

@@ -15,9 +15,28 @@ import { pinsRoutes } from './routes/pins.js'
 import { bannerRoutes } from './routes/banner.js'
 import { purgeTrash } from './nodes.js'
 import { cleanupCache } from './cache.js'
-import { recoverMigrations } from './routes/migrations.js'
+import { recoverMigrations, resumeRootMove } from './routes/migrations.js'
 
 const GIB = 1024 ** 3
+
+// Отдаётся только для самой SPA. Токен сессии живёт в localStorage, поэтому без CSP
+// любая XSS-точка = угон аккаунта; XFO запрещает встраивать панель в чужой iframe.
+const APP_CSP = [
+  "default-src 'self'",
+  "img-src 'self' data: blob:",
+  "media-src 'self' blob:",
+  // Nunito и Wix Madefor Display подключаются из Google Fonts прямо из компонентов
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "script-src 'self'",
+  "connect-src 'self'",
+  "frame-src 'self' blob:",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join('; ')
 
 export function buildApp() {
   const app = Fastify({
@@ -51,6 +70,17 @@ export function buildApp() {
     if (req.method === 'OPTIONS') {
       reply.code(204).send()
     }
+  })
+
+  app.addHook('onSend', async (_req, reply, payload) => {
+    reply.header('Referrer-Policy', 'no-referrer')
+    const contentType = String(reply.getHeader('content-type') ?? '')
+    if (contentType.includes('text/html')) {
+      // не перетираем точечные заголовки маршрутов (например, `sandbox` у SVG)
+      if (!reply.hasHeader('content-security-policy')) reply.header('Content-Security-Policy', APP_CSP)
+      if (!reply.hasHeader('x-frame-options')) reply.header('X-Frame-Options', 'SAMEORIGIN')
+    }
+    return payload
   })
 
   app.setErrorHandler((err, req, reply) => {
@@ -142,14 +172,16 @@ const isEntrypoint = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1
 if (isEntrypoint) {
   const app = buildApp()
 
-  app
-    .listen({ host: config.host, port: config.port })
-    .then(async () => {
-      await recoverMigrations().catch((err) => app.log.error(err))
-      startPurgeLoop()
-    })
-    .catch((err) => {
-      app.log.error(err)
-      process.exit(1)
-    })
+  const start = async () => {
+    // Прерванный перенос общего хранилища докручиваем до того, как сервер начнёт принимать запросы
+    await resumeRootMove().catch((err) => app.log.error({ err }, 'перенос хранилища не завершён'))
+    await app.listen({ host: config.host, port: config.port })
+    await recoverMigrations().catch((err) => app.log.error(err))
+    startPurgeLoop()
+  }
+
+  start().catch((err) => {
+    app.log.error(err)
+    process.exit(1)
+  })
 }

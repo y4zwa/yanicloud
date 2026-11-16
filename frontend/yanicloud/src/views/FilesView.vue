@@ -493,7 +493,12 @@ const storagePercentLabel = computed(() => {
 })
 const storageLabel = computed(() => {
   if (storage.value.quota > 0) return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.quota)}`
-  return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.availableTotal)}`
+  // availableTotal = свободное место на диске + свои файлы, то есть реально доступная ёмкость.
+  // Без диска знаменателя нет — показываем только занятое, чтобы не было «16 ГБ из 0 Б».
+  if (storage.value.availableTotal > 0) {
+    return `${formatBytes(storage.value.used)} из ${formatBytes(storage.value.availableTotal)}`
+  }
+  return formatBytes(storage.value.used)
 })
 
 /* ── Плавный «догоняющий» прогресс хранилища ──────────────────────────── */

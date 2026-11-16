@@ -9,7 +9,6 @@ export async function storageRoutes(app: FastifyInstance): Promise<void> {
     const userId = userIdOf(req)
     const used = usedBytes(userId)
     const quota = getQuota(userId)
-    const percent = quota > 0 ? Math.min(100, Math.round((used / quota) * 100)) : 0
 
     // Диск считаем по тому, где РЕАЛЬНО лежат файлы пользователя,
     // а не по глобальному storage_dir
@@ -27,16 +26,28 @@ export async function storageRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const reservedByOthers = reservedQuotaBytes(userId)
+
+    // Ёмкость для пользователя без квоты — то, что он реально может занять: свободное место
+    // на диске плюс его собственные файлы. Раньше отдавали весь диск, и рядом с «свободно 384 из 457»
+    // «16 из 457» читалось как ошибка: 73 ГБ заняты не пользователем, а другими данными на диске.
+    // Если пользователю задана квота, знаменателем всё равно будет она (см. percent и фронт).
+    const availableTotal = available ? disk.free + used : 0
+
     return {
       used,
       quota,
-      percent,
+      percent:
+        quota > 0
+          ? Math.min(100, Math.round((used / quota) * 100))
+          : availableTotal > 0
+            ? Math.min(100, Math.round((used / availableTotal) * 100))
+            : 0,
       dir,
       available,
       diskTotal: disk.total,
       diskFree: disk.free,
       reservedByOthers,
-      availableTotal: Math.max(0, disk.total - reservedByOthers),
+      availableTotal,
     }
   })
 }

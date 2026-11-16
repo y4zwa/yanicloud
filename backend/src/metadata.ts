@@ -260,7 +260,17 @@ function ffprobe(filePath: string): Promise<any> {
   return new Promise((resolve, reject) => {
     execFile(
       'ffprobe',
-      ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', filePath],
+      [
+        '-v',
+        'error',
+        '-protocol_whitelist',
+        'file',
+        '-print_format',
+        'json',
+        '-show_format',
+        '-show_streams',
+        filePath,
+      ],
       { timeout: 20000, maxBuffer: 8 * 1024 * 1024 },
       (err, stdout) => {
         if (err) return reject(err)

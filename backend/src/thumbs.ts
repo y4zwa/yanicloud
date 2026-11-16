@@ -25,7 +25,23 @@ function extractVideoFrame(src: string, dst: string): Promise<void> {
   return new Promise((resolve, reject) => {
     execFile(
       'ffmpeg',
-      ['-y', '-ss', '1', '-i', src, '-frames:v', '1', '-vf', 'scale=640:-2', '-q:v', '3', dst],
+      // -protocol_whitelist: разбираемый файл — локальный, контейнеры не должны тянуть внешние URL
+      [
+        '-y',
+        '-protocol_whitelist',
+        'file',
+        '-ss',
+        '1',
+        '-i',
+        src,
+        '-frames:v',
+        '1',
+        '-vf',
+        'scale=640:-2',
+        '-q:v',
+        '3',
+        dst,
+      ],
       { timeout: 60000 },
       (err) => {
         if (err) reject(err)

@@ -29,6 +29,16 @@ function serializeUser(r: any) {
   }
 }
 
+/** Убирает каталог, созданный этим запросом, если он так и остался пустым. */
+function removeEmptyDir(dir: string | null): void {
+  if (!dir) return
+  try {
+    fs.rmdirSync(dir)
+  } catch {
+    /* не пустой или уже удалён — не трогаем */
+  }
+}
+
 export async function adminRoutes(app: FastifyInstance): Promise<void> {
   // ---------- пользователи ----------
 
@@ -71,13 +81,35 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const isAdmin = body?.isAdmin === true || body?.isAdmin === 1 ? 1 : 0
     const storagePath =
       body?.storagePath && String(body.storagePath).trim() !== '' ? String(body.storagePath).trim() : null
+    let createdDir: string | null = null
+    if (storagePath) {
+      // Личный каталог создаётся здесь, один раз: при работе сервис внешние каталоги сам не создаёт
+      // (см. ensureStorageDir), чтобы не писать на системный диск, пока нужный диск не подключён.
+      const existed = fs.existsSync(storagePath)
+      try {
+        fs.mkdirSync(storagePath, { recursive: true })
+      } catch (err) {
+        return fail(reply, 400, `Не удалось создать каталог хранилища: ${(err as Error).message}`)
+      }
+      if (!existed) createdDir = storagePath
+    }
     const now = Date.now()
     const passwordHash = await hashPassword(password)
-    const info = db
-      .prepare(
-        'INSERT INTO users (username, password_hash, quota_bytes, is_admin, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-      )
-      .run(username, passwordHash, quota, isAdmin, storagePath, now)
+    let info: any
+    try {
+      info = db
+        .prepare(
+          'INSERT INTO users (username, password_hash, quota_bytes, is_admin, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+        )
+        .run(username, passwordHash, quota, isAdmin, storagePath, now)
+    } catch (err: any) {
+      // Каталог уже создан — не оставляем его сиротой, если пользователя создать не удалось
+      removeEmptyDir(createdDir)
+      if (String(err?.code ?? '').startsWith('SQLITE_CONSTRAINT')) {
+        return fail(reply, 409, 'Такой пользователь уже существует')
+      }
+      throw err
+    }
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid) as any
     return { user: serializeUser(row) }
   })
@@ -99,8 +131,15 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     }
 
     if (body?.isAdmin !== undefined) {
+      const makeAdmin = body.isAdmin === true || body.isAdmin === 1
+      if (!makeAdmin) {
+        // Иначе можно остаться без единого администратора и потерять доступ к настройкам
+        if (id === userIdOf(req)) return fail(reply, 400, 'Нельзя снять права администратора с себя')
+        const admins = db.prepare('SELECT COUNT(*) AS c FROM users WHERE is_admin = 1').get() as any
+        if ((admins?.c ?? 0) <= 1) return fail(reply, 400, 'Это последний администратор')
+      }
       updates.push('is_admin = ?')
-      params.push(body.isAdmin === true || body.isAdmin === 1 ? 1 : 0)
+      params.push(makeAdmin ? 1 : 0)
     }
 
     if (body?.password !== undefined && body?.password !== null && body?.password !== '') {
@@ -110,6 +149,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       }
       updates.push('password_hash = ?')
       params.push(await hashPassword(password))
+      // Смена пароля должна выкинуть старые сессии этого пользователя
+      updates.push('token_version = token_version + 1')
     }
 
     if (updates.length > 0) {
@@ -150,7 +191,14 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     if (isMigrationActive(id)) {
       return fail(reply, 409, 'Нельзя удалять пользователя, пока идёт перенос его файлов')
     }
-    deleteUserFiles(id)
+    try {
+      deleteUserFiles(id)
+    } catch (err) {
+      // ?force=1 — аварийный выход, если каталог хранилища пропал навсегда:
+      // удаляем пользователя, файлы (если они где-то есть) остаются сиротами
+      if (String((req.query as any)?.force ?? '') !== '1' || !isStorageError(err)) throw err
+      console.warn(`[admin] пользователь ${id} удалён без удаления файлов: хранилище недоступно`)
+    }
     forgetMigrationJob(id)
     db.prepare('DELETE FROM users WHERE id = ?').run(id)
     return { ok: true }
@@ -281,7 +329,8 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/admin/settings', { preHandler: requireAdmin }, async () => currentSettings())
 
   app.put('/api/admin/settings', { preHandler: requireAdmin }, async (req, reply) => {
-    const body = req.body as any
+    // PUT без тела не должен падать: раньше обращение к полям undefined давало 500
+    const body = (req.body ?? {}) as any
 
     if (body.defaultQuota !== undefined && body.defaultQuota !== null && body.defaultQuota !== '') {
       const q = Number(body.defaultQuota)

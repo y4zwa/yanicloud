@@ -5,7 +5,7 @@ import { pipeline } from 'node:stream/promises'
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { db, rowToNode, toPublic, getCacheDir, getUserFilesDir, isStorageError } from '../db.js'
-import { requireAuth, fail, userIdOf, isUserToken } from '../auth.js'
+import { requireAuth, fail, userIdOf, activeSession } from '../auth.js'
 import { classify } from '../filekind.js'
 import { convertToPdf } from '../convert.js'
 import { generateThumb } from '../thumbs.js'
@@ -28,7 +28,7 @@ import {
 } from '../nodes.js'
 import { isMigrationActive } from './migrations.js'
 
-const LIST_SQL = `
+export const LIST_SQL = `
   SELECT n.*,
     (SELECT COUNT(*) FROM nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL) AS items
   FROM nodes n
@@ -54,6 +54,11 @@ function attachmentDisposition(filename: string): string {
   return `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`
 }
 
+/** Аварийное удаление «только записей» включается явным `?force=1`. */
+function forceRequested(req: FastifyRequest): boolean {
+  return String((req.query as any)?.force ?? '') === '1'
+}
+
 function streamInline(reply: FastifyReply, req: FastifyRequest, filePath: string, contentType: string): FastifyReply {
   const stat = fs.statSync(filePath)
   reply.header('Accept-Ranges', 'bytes')
@@ -66,37 +71,55 @@ function streamInline(reply: FastifyReply, req: FastifyRequest, filePath: string
 
   const range = req.headers.range
   if (range) {
-    const m = /bytes=(\d*)-(\d*)/.exec(range)
-    let start = m && m[1] ? parseInt(m[1], 10) : 0
-    let end = m && m[2] ? parseInt(m[2], 10) : stat.size - 1
-    if (Number.isNaN(start)) start = 0
-    if (Number.isNaN(end) || end >= stat.size) end = stat.size - 1
-    if (start > end) {
-      reply.code(416).header('Content-Range', `bytes */${stat.size}`)
-      return reply.send()
+    const m = /^bytes=(\d*)-(\d*)$/.exec(range.trim())
+    let start: number | null = null
+    let end: number | null = null
+
+    if (m && m[1] !== '') {
+      start = parseInt(m[1], 10)
+      end = m[2] === '' ? stat.size - 1 : parseInt(m[2], 10)
+    } else if (m && m[2] !== '') {
+      // bytes=-N — это последние N байт файла, а не первые N
+      const suffix = parseInt(m[2], 10)
+      if (Number.isFinite(suffix) && suffix > 0) {
+        start = Math.max(0, stat.size - suffix)
+        end = stat.size - 1
+      }
     }
-    reply.code(206)
-    reply.header('Content-Range', `bytes ${start}-${end}/${stat.size}`)
-    reply.header('Content-Length', end - start + 1)
-    return reply.send(fs.createReadStream(filePath, { start, end }))
+
+    if (start !== null && end !== null && !Number.isNaN(start) && !Number.isNaN(end)) {
+      if (end >= stat.size) end = stat.size - 1
+      if (start > end || start >= stat.size) {
+        reply.code(416).header('Content-Range', `bytes */${stat.size}`)
+        return reply.send()
+      }
+      reply.code(206)
+      reply.header('Content-Range', `bytes ${start}-${end}/${stat.size}`)
+      reply.header('Content-Length', end - start + 1)
+      return reply.send(fs.createReadStream(filePath, { start, end }))
+    }
+    // Непонятный Range игнорируем и отдаём файл целиком (RFC 7233)
   }
   reply.header('Content-Length', stat.size)
   return reply.send(fs.createReadStream(filePath))
 }
 
-async function mediaAuth(app: FastifyInstance, req: FastifyRequest, reply: FastifyReply): Promise<number | null> {
+/**
+ * Проверка медиа-токена из `?t=`.
+ * `kinds` — какие виды токенов пускать в этот маршрут: токен миниатюры не должен
+ * открывать `/download` или `/stream` (и наоборот).
+ */
+async function mediaAuth(
+  app: FastifyInstance,
+  req: FastifyRequest,
+  reply: FastifyReply,
+  kinds: string[]
+): Promise<number | null> {
   const t = (req.query as any)?.t
   if (t) {
     try {
       const payload = app.jwt.verify(t) as any
-      if (
-        payload &&
-        (payload.kind === 'stream' ||
-          payload.kind === 'thumb' ||
-          payload.kind === 'download' ||
-          payload.kind === 'cover') &&
-        payload.id === (req.params as any).id
-      ) {
+      if (payload && kinds.includes(String(payload.kind)) && payload.id === (req.params as any).id) {
         return Number(payload.sub)
       }
     } catch {
@@ -111,12 +134,14 @@ async function mediaAuth(app: FastifyInstance, req: FastifyRequest, reply: Fasti
     fail(reply, 401, 'Unauthorized')
     return null
   }
-  // медиа-токен не должен работать как обычный Bearer даже на медиа-ручках
-  if (!isUserToken(req)) {
+  // медиа-токен не должен работать как обычный Bearer даже на медиа-ручках,
+  // и сессия должна быть живой: пользователь существует, пароль не менялся
+  const session = activeSession(req)
+  if (!session) {
     fail(reply, 401, 'Unauthorized')
     return null
   }
-  return userIdOf(req)
+  return session.id
 }
 
 export async function filesRoutes(app: FastifyInstance): Promise<void> {
@@ -191,6 +216,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete('/api/files/trash', { preHandler: requireAuth }, async (req) => {
     const userId = userIdOf(req)
+    const force = forceRequested(req)
     const rows = db
       .prepare(
         `SELECT n.id FROM nodes n
@@ -200,7 +226,15 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
            )`
       )
       .all(userId) as any[]
-    for (const r of rows) permanentDelete(userId, r.id)
+    for (const r of rows) {
+      try {
+        permanentDelete(userId, r.id)
+      } catch (err) {
+        if (!force || !isStorageError(err)) throw err
+        console.warn(`[trash] ${r.id}: записи удалены без файлов, хранилище недоступно`)
+        permanentDelete(userId, r.id, { force: true })
+      }
+    }
     return { ok: true }
   })
 
@@ -305,7 +339,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
   })
 
   app.get('/api/files/:id/stream', async (req, reply) => {
-    const userId = await mediaAuth(app, req, reply)
+    const userId = await mediaAuth(app, req, reply, ['stream'])
     if (userId === null) return reply
     const { id } = req.params as any
     const node = getNode(userId, id)
@@ -351,7 +385,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
   })
 
   app.get('/api/files/:id/thumbnail', async (req, reply) => {
-    const userId = await mediaAuth(app, req, reply)
+    const userId = await mediaAuth(app, req, reply, ['thumb'])
     if (userId === null) return reply
     const { id } = req.params as any
     const node = getNode(userId, id)
@@ -367,18 +401,22 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
 
     const thumbPath = path.join(getCacheDir(), `${node.id}.thumb.jpg`)
     if (!fs.existsSync(thumbPath)) {
-      const tmpPath = `${thumbPath}.tmp.jpg`
+      // У каждого запроса свой tmp-файл: с общим именем параллельные запросы одной миниатюры
+      // мешали друг другу — часть получала ложный 422, часть пустое тело.
+      const tmpPath = `${thumbPath}.${randomUUID()}.tmp.jpg`
       const result = await generateThumb(kind, fullPath, tmpPath)
       if (result === 'ok') {
         try {
           fs.renameSync(tmpPath, thumbPath)
         } catch {
-          fs.rmSync(tmpPath, { force: true })
-          return fail(reply, 422, 'Не удалось создать миниатюру')
+          /* миниатюру мог создать параллельный запрос */
         }
-      } else {
-        fs.rmSync(tmpPath, { force: true })
-        return fail(reply, 404, 'Миниатюра недоступна')
+      }
+      fs.rmSync(tmpPath, { force: true })
+      if (!fs.existsSync(thumbPath)) {
+        return result === 'ok'
+          ? fail(reply, 422, 'Не удалось создать миниатюру')
+          : fail(reply, 404, 'Миниатюра недоступна')
       }
     }
     return streamInline(reply, req, thumbPath, 'image/jpeg')
@@ -394,7 +432,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
   })
 
   app.get('/api/files/:id/cover', async (req, reply) => {
-    const userId = await mediaAuth(app, req, reply)
+    const userId = await mediaAuth(app, req, reply, ['cover'])
     if (userId === null) return reply
     const { id } = req.params as any
     const node = getNode(userId, id)
@@ -406,17 +444,18 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
 
     const coverPath = path.join(getCacheDir(), `${node.id}.cover.jpg`)
     if (!fs.existsSync(coverPath)) {
-      const tmpPath = `${coverPath}.tmp.jpg`
+      const tmpPath = `${coverPath}.${randomUUID()}.tmp.jpg`
       const ok = await extractCover(fullPath, tmpPath)
-      if (!ok) {
-        fs.rmSync(tmpPath, { force: true })
-        return fail(reply, 404, 'Обложка не найдена')
+      if (ok) {
+        try {
+          fs.renameSync(tmpPath, coverPath)
+        } catch {
+          /* обложку мог сохранить параллельный запрос */
+        }
       }
-      try {
-        fs.renameSync(tmpPath, coverPath)
-      } catch {
-        fs.rmSync(tmpPath, { force: true })
-        return fail(reply, 422, 'Не удалось сохранить обложку')
+      fs.rmSync(tmpPath, { force: true })
+      if (!fs.existsSync(coverPath)) {
+        return fail(reply, 404, 'Обложка не найдена')
       }
     }
     return streamInline(reply, req, coverPath, 'image/jpeg')
@@ -432,7 +471,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
   })
 
   app.get('/api/files/:id/download', async (req, reply) => {
-    const userId = await mediaAuth(app, req, reply)
+    const userId = await mediaAuth(app, req, reply, ['download'])
     if (userId === null) return reply
     const { id } = req.params as any
     const node = getNode(userId, id)
@@ -493,25 +532,17 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     const node = getNode(userId, id)
     if (!node || node.deletedAt) return fail(reply, 404, 'Не найдено')
 
-    const body = req.body as any
-    const updates: string[] = []
-    const params: any[] = []
+    // PATCH без тела не должен падать: раньше обращение к полям undefined давало 500
+    const body = (req.body ?? {}) as any
+
+    let nameToSet: string | null = null
+    let parentToSet: string | null | undefined = undefined
 
     if (body.name !== undefined) {
       const name = sanitizeName(String(body.name))
-      if (name !== node.name) {
-        updates.push('name = ?')
-        params.push(uniqueName(userId, node.parentId, name))
-      }
+      if (name !== node.name) nameToSet = name
     }
-    if (body.isFavorite !== undefined) {
-      updates.push('is_favorite = ?')
-      params.push(body.isFavorite ? 1 : 0)
-    }
-    if (body.hiddenRecent !== undefined) {
-      updates.push('hidden_recent = ?')
-      params.push(body.hiddenRecent ? 1 : 0)
-    }
+
     if (body.parentId !== undefined && body.parentId !== node.parentId) {
       let parentId: string | null = null
       try {
@@ -522,8 +553,34 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
       if (parentId && isDescendant(userId, parentId, node.id)) {
         return fail(reply, 400, 'Нельзя переместить папку внутрь самой себя')
       }
+      parentToSet = parentId
+    }
+
+    // И переименование, и перенос не должны оставлять в папке второй файл с тем же именем
+    if (nameToSet !== null || parentToSet !== undefined) {
+      const targetParent = parentToSet !== undefined ? parentToSet : node.parentId
+      const targetName = nameToSet ?? node.name
+      const finalName = uniqueName(userId, targetParent, targetName)
+      nameToSet = finalName !== node.name ? finalName : null
+    }
+
+    const updates: string[] = []
+    const params: any[] = []
+    if (nameToSet !== null) {
+      updates.push('name = ?')
+      params.push(nameToSet)
+    }
+    if (parentToSet !== undefined) {
       updates.push('parent_id = ?')
-      params.push(parentId)
+      params.push(parentToSet)
+    }
+    if (body.isFavorite !== undefined) {
+      updates.push('is_favorite = ?')
+      params.push(body.isFavorite ? 1 : 0)
+    }
+    if (body.hiddenRecent !== undefined) {
+      updates.push('hidden_recent = ?')
+      params.push(body.hiddenRecent ? 1 : 0)
     }
 
     if (updates.length) {
@@ -549,7 +606,14 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as any
     const node = getNode(userId, id)
     if (!node) return fail(reply, 404, 'Не найдено')
-    permanentDelete(userId, id)
+    try {
+      permanentDelete(userId, id)
+    } catch (err) {
+      // ?force=1 — аварийный выход, если каталог хранилища пропал навсегда:
+      // убираем записи из базы, файлы (если они есть) остаются сиротами на диске
+      if (!forceRequested(req) || !isStorageError(err)) throw err
+      permanentDelete(userId, id, { force: true })
+    }
     return { ok: true }
   })
 

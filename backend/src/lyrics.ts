@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { parseFile } from 'music-metadata'
 import { db, getCacheDir, resolveUserFilesDir } from './db.js'
+import { config } from './config.js'
 import type { Node } from './types.js'
 
 export interface LyricsWord {
@@ -343,8 +344,8 @@ export async function getLyrics(userId: number, node: Node, fullPath: string): P
     }
   }
 
-  // 3. LRCLIB (внешний каталог синхронизированных текстов)
-  if (!lines.length) {
+  // 3. LRCLIB (внешний каталог синхронизированных текстов), если это разрешено настройкой
+  if (!lines.length && config.lyricsOnline) {
     try {
       if (!track) track = await parseFile(fullPath, { duration: true }).catch(() => null)
       const title = String(lastItem(track?.common?.title) ?? '').trim()

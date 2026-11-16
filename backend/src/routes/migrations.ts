@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import type { Dirent, Stats } from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import { db, getUserFilesDir, resolveFilesDir } from '../db.js'
+import { db, getUserFilesDir, resolveFilesDir, setSetting } from '../db.js'
 import { diskInfo } from '../disk.js'
 import { config } from '../config.js'
 
@@ -27,6 +27,33 @@ const ACTIVE_STATUSES: MigrationStatus[] = ['preparing', 'copying', 'verifying',
 const jobs = new Map<number, MigrationJob>()
 
 const MARKER_DIR = path.join(config.dataDir, 'migrations')
+/** Маркер переноса общего хранилища: пока он есть, перенос не завершён и его надо докрутить. */
+const ROOT_MARKER = path.join(MARKER_DIR, 'root-move.json')
+
+interface RootMarker {
+  from: string
+  to: string
+}
+
+async function writeRootMarker(marker: RootMarker): Promise<void> {
+  await fsp.mkdir(MARKER_DIR, { recursive: true })
+  const tmp = `${ROOT_MARKER}.tmp`
+  await fsp.writeFile(tmp, JSON.stringify(marker), 'utf8')
+  await fsp.rename(tmp, ROOT_MARKER)
+}
+
+async function removeRootMarker(): Promise<void> {
+  await fsp.rm(ROOT_MARKER, { force: true })
+}
+
+/** Сверяет деревья и превращает расхождение в понятную ошибку про конкретное имя. */
+async function assertSameTree(src: string, dst: string, name: string): Promise<void> {
+  try {
+    await verifyTree(src, dst)
+  } catch (err) {
+    throw new Error(`«${name}» уже есть в целевой папке и отличается от исходного (${(err as Error).message})`)
+  }
+}
 
 interface MigrationMarker {
   userId: number
@@ -90,7 +117,8 @@ async function walkFiles(root: string, cb: (rel: string, abs: string, st: Stats)
   const rootSt = await fsp.stat(root).catch(() => null)
   if (!rootSt) return
   if (rootSt.isFile()) {
-    await cb(path.basename(root), root, rootSt)
+    // '.', а не имя файла: так файл сверяется с копией, лежащей под другим (временным) именем
+    await cb('.', root, rootSt)
     return
   }
   const stack = [root]
@@ -392,8 +420,15 @@ export async function moveStorageRoot(from: string, to: string): Promise<void> {
   if (isWithin(to, from) || isWithin(from, to)) {
     throw new Error('Новая директория не может быть внутри старой (или наоборот)')
   }
+  // Целевой каталог создаём здесь, до любых выходов: при работе сервис внешние каталоги сам
+  // не создаёт (см. ensureStorageDir), и после смены storage_dir он должен уже существовать.
+  await fsp.mkdir(to, { recursive: true })
+
   const fromSt = await fsp.stat(from).catch(() => null)
-  if (!fromSt?.isDirectory()) return // переносить нечего
+  if (!fromSt?.isDirectory()) {
+    await removeRootMarker()
+    return // переносить нечего
+  }
 
   // если у кого-то личный каталог лежит внутри общего, перенос общего его сломает
   const personal = db
@@ -408,13 +443,13 @@ export async function moveStorageRoot(from: string, to: string): Promise<void> {
     }
   }
 
-  await fsp.mkdir(to, { recursive: true })
   const toSt = await fsp.stat(to)
 
   if (toSt.dev === fromSt.dev) {
     if ((await fsp.readdir(to)).length === 0) {
       try {
         await fsp.rename(from, to)
+        await removeRootMarker()
         return
       } catch {
         // rename не удался — ниже сработает копирование
@@ -429,10 +464,30 @@ export async function moveStorageRoot(from: string, to: string): Promise<void> {
   }
 
   const entries = await fsp.readdir(from, { withFileTypes: true }).catch(() => [] as Dirent[])
+
+  // Сначала проверяем все конфликты целиком. Иначе перенос падал бы на середине, когда часть
+  // файлов уже переехала, а storage_dir всё ещё указывает на старый каталог.
   for (const e of entries) {
     const src = path.join(from, e.name)
     const dst = path.join(to, e.name)
-    if (fs.existsSync(dst)) continue // уже перенесено при предыдущем запуске
+    if (!fs.existsSync(dst)) continue
+    await assertSameTree(src, dst, e.name)
+  }
+
+  // Маркер: если процесс упадёт посреди переноса, при следующем старте перенос докрутится
+  // (см. resumeRootMove), а не останется наполовину сделанным.
+  await writeRootMarker({ from: path.resolve(from), to: path.resolve(to) })
+
+  for (const e of entries) {
+    const src = path.join(from, e.name)
+    const dst = path.join(to, e.name)
+
+    if (fs.existsSync(dst)) {
+      // Остаток прерванного переноса: копия уже на месте и совпадает с исходником (проверено выше)
+      await fsp.rm(src, { recursive: true, force: true })
+      continue
+    }
+
     try {
       await fsp.rename(src, dst)
       continue
@@ -440,9 +495,45 @@ export async function moveStorageRoot(from: string, to: string): Promise<void> {
       if (err?.code !== 'EXDEV') throw err
     }
 
-    await fsp.cp(src, dst, { recursive: true, force: true })
-    await verifyTree(src, dst)
+    // Между устройствами rename невозможен. Копируем под временным именем и сохраняем mtime
+    // (verifyTree сверяет его), сверяем, и только потом переименовываем и удаляем источник:
+    // недокопированный файл никогда не лежит под своим настоящим именем.
+    const tmp = `${dst}.mig-tmp`
+    await fsp.rm(tmp, { recursive: true, force: true })
+    await fsp.cp(src, tmp, { recursive: true, force: true, preserveTimestamps: true })
+    await verifyTree(src, tmp)
+    await fsp.rename(tmp, dst)
     await fsp.rm(src, { recursive: true, force: true })
   }
   await fsp.rmdir(from).catch(() => {})
+  await removeRootMarker()
+}
+
+/**
+ * Докручивает перенос общего хранилища, прерванный на середине (упал процесс, кончилось место).
+ * Без этого часть файлов осталась бы в новом каталоге, а storage_dir — в старом.
+ */
+export async function resumeRootMove(): Promise<void> {
+  let raw: string
+  try {
+    raw = await fsp.readFile(ROOT_MARKER, 'utf8')
+  } catch {
+    return
+  }
+
+  let marker: RootMarker | null = null
+  try {
+    marker = JSON.parse(raw)
+  } catch {
+    /* битый маркер — просто убираем */
+  }
+  if (!marker?.from || !marker?.to) {
+    await removeRootMarker()
+    return
+  }
+
+  console.log(`[migration] завершаю прерванный перенос хранилища ${marker.from} → ${marker.to}`)
+  await moveStorageRoot(marker.from, marker.to)
+  setSetting('storage_dir', marker.to)
+  console.log(`[migration] перенос завершён, хранилище: ${marker.to}`)
 }

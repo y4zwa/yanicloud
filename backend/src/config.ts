@@ -36,6 +36,9 @@ export const config = {
   trustProxy: boolEnv('TRUST_PROXY', false),
   // CORS не нужен, когда фронт раздаётся с того же origin. Пусто — заголовки не отдаём.
   corsOrigin: env('CORS_ORIGIN', '').trim(),
+  // Запрос к LRCLIB отправляет наружу артиста и название трека. LYRICS_ONLINE=false выключает
+  // внешний поиск: остаются только теги файла и .lrc рядом с треком.
+  lyricsOnline: boolEnv('LYRICS_ONLINE', true),
 }
 
 export const filesDir = path.join(config.dataDir, 'files')

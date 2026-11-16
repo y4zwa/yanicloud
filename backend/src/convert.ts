@@ -45,11 +45,15 @@ function doConvertToPdf(src: string, dst: string, ext: string): Promise<void> {
         }
         const produced = path.join(tmp, 'input.pdf')
         if (fs.existsSync(produced)) {
+          // Копируем под временным именем: половина PDF не должна попасть под настоящим именем
+          const partial = `${dst}.${randomUUID()}.tmp.pdf`
           try {
-            fs.copyFileSync(produced, dst)
+            fs.copyFileSync(produced, partial)
+            fs.renameSync(partial, dst)
             fs.rmSync(tmp, { recursive: true, force: true })
             return resolve()
           } catch (e) {
+            fs.rmSync(partial, { force: true })
             fs.rmSync(tmp, { recursive: true, force: true })
             return reject(e as Error)
           }

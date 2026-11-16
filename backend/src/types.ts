@@ -21,12 +21,14 @@ export interface Node {
   isFavorite: boolean
   hiddenRecent: boolean
   deletedAt: number | null
+  /** Метка операции удаления: по ней восстановление папки возвращает только своё поддерево. */
+  trashId?: string | null
   createdAt: number
   updatedAt: number
   items?: number
 }
 
-export type PublicNode = Omit<Node, 'userId'>
+export type PublicNode = Omit<Node, 'userId' | 'storageKey' | 'trashId'>
 
 export interface PublicUser {
   id: number

@@ -15,6 +15,19 @@ import { normalizeAccentId } from '../accent-settings.js'
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
 const SESSION_TTL = '30d'
 
+/**
+ * Хеш-заглушка для несуществующего логина: без неё ответ на неизвестный логин приходил бы
+ * за миллисекунду, а на известный — за время scrypt, и логины можно было бы перебирать по таймингу.
+ */
+const DUMMY_PASSWORD_HASH =
+  '59ac7aba7798b3df5c36ae4ab60b1d6d:35ee89d886ec8b1df1b555e2fdd63298e3fbe4deb4dec8169be7d39a2bed9e47' +
+  'b956d92e4168fb6966e3ba4b62620d4ad9576b5612e4da8eba3cb63b723525cd'
+
+/** Полезная нагрузка сессии: `tv` — версия пароля, по ней старые токены отзываются. */
+function sessionPayload(row: any) {
+  return { sub: String(row.id), username: row.username, tv: Number(row.token_version ?? 0) }
+}
+
 function publicUser(row: any) {
   return {
     id: row.id,
@@ -75,7 +88,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid) as any
-    const token = app.jwt.sign({ sub: String(row.id), username: row.username }, { expiresIn: SESSION_TTL })
+    const token = app.jwt.sign(sessionPayload(row), { expiresIn: SESSION_TTL })
     return { token, user: publicUser(row) }
   })
 
@@ -89,11 +102,13 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const password = String(body?.password ?? '')
 
     const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as any
-    if (!row || !(await verifyPassword(password, row.password_hash))) {
+    // Проверяем хеш даже для неизвестного логина, иначе существование аккаунта видно по времени ответа
+    const passwordOk = await verifyPassword(password, row?.password_hash ?? DUMMY_PASSWORD_HASH)
+    if (!row || !passwordOk) {
       return fail(reply, 401, 'Неверный логин или пароль')
     }
 
-    const token = app.jwt.sign({ sub: String(row.id), username: row.username }, { expiresIn: SESSION_TTL })
+    const token = app.jwt.sign(sessionPayload(row), { expiresIn: SESSION_TTL })
     return { token, user: publicUser(row) }
   })
 

@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import Database from 'better-sqlite3'
 import { config, dbPath, filesDir, cacheDir } from './config.js'
@@ -25,6 +26,7 @@ db.exec(`
     quota_bytes INTEGER NOT NULL DEFAULT ${config.defaultQuota},
     is_admin INTEGER NOT NULL DEFAULT 0,
     banner INTEGER NOT NULL DEFAULT 0,
+    token_version INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL
   );
 
@@ -40,6 +42,7 @@ db.exec(`
     is_favorite INTEGER NOT NULL DEFAULT 0,
     hidden_recent INTEGER NOT NULL DEFAULT 0,
     deleted_at INTEGER,
+    trash_id TEXT,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -63,6 +66,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_nodes_user_deleted ON nodes(user_id, deleted_at);
   CREATE INDEX IF NOT EXISTS idx_nodes_user_fav ON nodes(user_id, is_favorite);
   CREATE INDEX IF NOT EXISTS idx_nodes_user_name ON nodes(user_id, name);
+  -- подсчёт детей папки (items в листинге, избранном и закреплённых) ищет по parent_id без user_id:
+  -- без этого индекса каждая строка листинга сканирует всю таблицу nodes всех пользователей
+  CREATE INDEX IF NOT EXISTS idx_nodes_parent ON nodes(parent_id, deleted_at);
 `)
 
 // Migrations
@@ -75,6 +81,10 @@ if (!userCols.some((c) => c.name === 'storage_path')) {
 }
 if (!userCols.some((c) => c.name === 'banner')) {
   db.exec('ALTER TABLE users ADD COLUMN banner INTEGER NOT NULL DEFAULT 0')
+}
+// Версия сессии: увеличивается при смене пароля, старые токены перестают действовать.
+if (!userCols.some((c) => c.name === 'token_version')) {
+  db.exec('ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0')
 }
 if (!userCols.some((c) => c.name === 'banner_fit')) {
   db.exec("ALTER TABLE users ADD COLUMN banner_fit TEXT NOT NULL DEFAULT 'contain'")
@@ -96,6 +106,11 @@ if (!userCols.some((c) => c.name === 'accent_id')) {
 const nodeCols = db.prepare('PRAGMA table_info(nodes)').all() as any[]
 if (!nodeCols.some((c) => c.name === 'hidden_recent')) {
   db.exec('ALTER TABLE nodes ADD COLUMN hidden_recent INTEGER NOT NULL DEFAULT 0')
+}
+// Метка «удалено этой операцией»: по ней восстановление папки возвращает только своё поддерево
+// и не воскрешает файлы, которые пользователь отправил в корзину раньше и отдельно.
+if (!nodeCols.some((c) => c.name === 'trash_id')) {
+  db.exec('ALTER TABLE nodes ADD COLUMN trash_id TEXT')
 }
 
 // Promote the very first user to admin with unlimited quota if no admin exists yet
@@ -151,10 +166,27 @@ export function isStorageError(err: unknown): boolean {
   return typeof code === 'string' && STORAGE_ERROR_CODES.has(code)
 }
 
-/** Проверяет, что каталог существует и доступен для записи, и создаёт его при необходимости. */
+/** Каталоги внутри DATA_DIR (файлы по умолчанию и кэш) сервис создаёт сам. */
+function isManagedDir(dir: string): boolean {
+  const resolved = path.resolve(dir)
+  return resolved === path.resolve(filesDir) || resolved === path.resolve(cacheDir)
+}
+
+/**
+ * Проверяет, что каталог хранилища доступен.
+ *
+ * Внешние каталоги (отдельный диск, личный каталог пользователя) здесь НЕ создаются: если диск
+ * не смонтирован, пути на нём нет, и `mkdir -p` молча завёл бы пустой каталог на системном диске —
+ * новые файлы уходили бы туда, а удаление принимало бы «файла нет» за «уже удалён».
+ * Такой каталог создаётся один раз при настройке (создание пользователя, перенос хранилища).
+ */
 export function ensureStorageDir(dir: string): string {
   try {
-    fs.mkdirSync(dir, { recursive: true })
+    if (isManagedDir(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    } else if (!fs.statSync(dir).isDirectory()) {
+      throw new Error('это не каталог')
+    }
     return dir
   } catch (err) {
     throw new StorageUnavailableError(dir, err)
@@ -200,6 +232,7 @@ export function rowToNode(row: any): any {
     isFavorite: row.is_favorite === 1,
     hiddenRecent: row.hidden_recent === 1,
     deletedAt: row.deleted_at,
+    trashId: row.trash_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     items: row.items,
@@ -219,8 +252,9 @@ export function getUserFilesDir(userId: number): string {
 
 export function toPublic(node: any): any {
   if (!node) return null
-  // userId наружу не отдаём (он и так известен из сессии), storageKey — это путь на диске
-  const { userId: _userId, storageKey: _storageKey, ...rest } = node
+  // userId наружу не отдаём (он и так известен из сессии), storageKey — это путь на диске,
+  // trashId — служебная метка корзины
+  const { userId: _userId, storageKey: _storageKey, trashId: _trashId, ...rest } = node
   return rest
 }
 

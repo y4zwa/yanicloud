@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { db, rowToNode, resolveUserFilesDir } from './db.js'
+import { db, rowToNode, resolveUserFilesDir, ensureStorageDir } from './db.js'
 import { clearNodesCache } from './cache.js'
 import type { Node } from './types.js'
 
@@ -101,7 +101,7 @@ export function createFile(
   return getNode(userId, id)!
 }
 
-export function permanentDelete(userId: number, id: string): void {
+export function permanentDelete(userId: number, id: string, opts: { force?: boolean } = {}): void {
   const rows = db
     .prepare(
       `WITH RECURSIVE descendants(id) AS (
@@ -117,6 +117,11 @@ export function permanentDelete(userId: number, id: string): void {
   // Файлы пользователя могут лежать в его собственном каталоге (storage_path),
   // а не в глобальном storage_dir — удалять нужно именно оттуда.
   const dir = resolveUserFilesDir(userId)
+  // Каталог обязан быть доступен: rmSync({ force }) принимает «файла нет» за «уже удалён», и при
+  // отключённом диске мы стёрли бы записи из БД, оставив файлы на диске безымянными.
+  // Недоступность — это 503 для запроса и повтор при следующей автоочистке корзины.
+  // force — осознанный обход (каталог пропал навсегда): записи убираем, файлов не видим.
+  if (!opts.force && rows.some((r) => r.type === 'file' && r.storage_key)) ensureStorageDir(dir)
 
   for (const r of rows) {
     ids.push(r.id)
@@ -138,14 +143,21 @@ export function permanentDelete(userId: number, id: string): void {
 
 /** Мягко удаляет узел вместе со всем поддеревом — дети не остаются «живыми». */
 export function trashNode(userId: number, id: string, at: number): void {
+  // Метка операции: всё, что удалено этим вызовом, помечается одинаково, а уже лежащее в корзине
+  // сохраняет свою дату и метку — поэтому восстановление папки не воскрешает старое.
+  const batch = randomUUID()
   db.prepare(
     `WITH RECURSIVE descendants(id) AS (
-       SELECT id FROM nodes WHERE id = ? AND user_id = ?
+       SELECT id FROM nodes WHERE id = @id AND user_id = @user
        UNION ALL
-       SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id WHERE n.user_id = ?
+       SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id WHERE n.user_id = @user
      )
-     UPDATE nodes SET deleted_at = ?, updated_at = ? WHERE id IN (SELECT id FROM descendants)`
-  ).run(id, userId, userId, at, at)
+     UPDATE nodes SET
+       deleted_at = COALESCE(deleted_at, @at),
+       trash_id = CASE WHEN deleted_at IS NULL THEN @batch ELSE trash_id END,
+       updated_at = @at
+     WHERE id IN (SELECT id FROM descendants)`
+  ).run({ id, user: userId, at, batch })
 }
 
 export function restoreNode(userId: number, id: string): void {
@@ -160,14 +172,23 @@ export function restoreNode(userId: number, id: string): void {
 
   const now = Date.now()
   const restore = db.transaction(() => {
+    // Возвращаем только то, что удалили вместе с этим узлом: у файла, отправленного в корзину
+    // раньше и отдельно, другая метка операции, и он должен остаться в корзине.
+    // Для записей, удалённых до появления trash_id, сверяем дату (старый код ставил одну на всё поддерево).
     db.prepare(
       `WITH RECURSIVE descendants(id) AS (
-         SELECT id FROM nodes WHERE id = ? AND user_id = ?
+         SELECT id FROM nodes WHERE id = @id AND user_id = @user
          UNION ALL
-         SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id WHERE n.user_id = ?
+         SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id
+          WHERE n.user_id = @user AND n.deleted_at IS NOT NULL
+            AND (
+              (@trashId IS NOT NULL AND n.trash_id = @trashId)
+              OR (@trashId IS NULL AND n.deleted_at = @deletedAt)
+            )
        )
-       UPDATE nodes SET deleted_at = NULL, updated_at = ? WHERE id IN (SELECT id FROM descendants)`
-    ).run(id, userId, userId, now)
+       UPDATE nodes SET deleted_at = NULL, trash_id = NULL, updated_at = @now
+        WHERE id IN (SELECT id FROM descendants)`
+    ).run({ id, user: userId, trashId: node.trashId ?? null, deletedAt: node.deletedAt, now })
 
     if (parentId !== node.parentId) {
       db.prepare('UPDATE nodes SET parent_id = ? WHERE id = ?').run(parentId, id)
@@ -207,6 +228,9 @@ export function deleteUserFiles(userId: number): void {
     .prepare("SELECT id, storage_key FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL")
     .all(userId) as any[]
   const dir = resolveUserFilesDir(userId)
+  // Как и в permanentDelete: при недоступном диске не удаляем ничего, иначе вместе с пользователем
+  // (каскадом по внешнему ключу) исчезнут записи о файлах, которые остались на диске.
+  if (rows.length) ensureStorageDir(dir)
   for (const r of rows) {
     if (r.storage_key) fs.rmSync(path.join(dir, r.storage_key), { force: true })
   }

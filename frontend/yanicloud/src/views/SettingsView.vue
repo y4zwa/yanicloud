@@ -227,8 +227,29 @@
       </div>
     </div>
 
+    <!-- ТЕКСТЫ ПЕСЕН (админ) -->
+    <div v-if="isAdmin" class="m3-card m3-reveal pa-8 mb-8" style="--i: 3">
+      <h2 class="text-h5 font-weight-medium text-on-surface mb-6">Тексты песен</h2>
+      <div class="d-flex align-center justify-space-between gap-6">
+        <div class="min-width-0">
+          <div class="text-title-medium font-weight-medium text-on-surface">Искать тексты в LRCLIB</div>
+          <div class="text-body-2 text-on-surface-variant mt-1">
+            Если в файле нет текста и рядом нет <code>.lrc</code>, YaniCloud спрашивает публичный каталог lrclib.net.
+            Запрос уходит наружу и содержит артиста и название трека. Выключить — тексты будут только из самих файлов.
+          </div>
+        </div>
+        <v-switch
+          :model-value="settings.lyricsOnline"
+          color="primary"
+          hide-details
+          :loading="savingLyrics"
+          @update:model-value="toggleLyrics"
+        ></v-switch>
+      </div>
+    </div>
+
     <!-- ПОЛЬЗОВАТЕЛИ (админ) -->
-    <div v-if="isAdmin" class="m3-card m3-reveal pa-8" style="--i: 3">
+    <div v-if="isAdmin" class="m3-card m3-reveal pa-8" style="--i: 4">
       <div class="d-flex align-center justify-space-between mb-6">
         <h2 class="text-h5 font-weight-medium text-on-surface">Пользователи</h2>
         <v-btn color="primary-container" rounded="pill" class="text-none font-weight-medium" prepend-icon="mdi-account-plus" @click="openAddUser">
@@ -522,7 +543,8 @@ async function removeBanner(): Promise<void> {
 
 const users = ref<AdminUser[]>([])
 const loadingUsers = ref(false)
-const settings = ref<AdminSettings>({ defaultQuota: 0, storageDir: '', storageAvailable: true, trashRetentionDays: 30, diskTotal: 0, diskFree: 0, userCount: 0 })
+const settings = ref<AdminSettings>({ defaultQuota: 0, storageDir: '', storageAvailable: true, trashRetentionDays: 30, lyricsOnline: true, diskTotal: 0, diskFree: 0, userCount: 0 })
+const savingLyrics = ref(false)
 const ownStorage = ref<StorageInfo>({ used: 0, quota: 0, percent: 0, available: true, diskTotal: 0, diskFree: 0, reservedByOthers: 0, availableTotal: 0 })
 const disks = ref<AdminDisk[]>([])
 const loadingDisks = ref(false)
@@ -778,8 +800,20 @@ async function useDisk(disk: AdminDisk): Promise<void> {
   }
 }
 
-async function saveStorageSettings(): Promise<void> {
-  savingSettings.value = true
+async function toggleLyrics(value: boolean | null): Promise<void> {
+  const next = value === true
+  savingLyrics.value = true
+  try {
+    settings.value = await adminUpdateSettings({ lyricsOnline: next })
+    notify(next ? 'Поиск текстов в LRCLIB включён' : 'Тексты берутся только из файлов')
+  } catch (e) {
+    notify(e instanceof ApiError ? e.message : 'Ошибка сохранения', 'error')
+  } finally {
+    savingLyrics.value = false
+  }
+}
+
+async function saveStorageSettings(): Promise<void> {  savingSettings.value = true
   try {
     const s = await adminUpdateSettings({
       defaultQuota: gbToBytes(defaultQuotaInput.value),

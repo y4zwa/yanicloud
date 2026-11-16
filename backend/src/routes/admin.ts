@@ -1,7 +1,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
-import { db, setSetting, resolveFilesDir, ensureStorageDir, getDefaultQuota, isStorageError } from '../db.js'
+import {
+  db,
+  setSetting,
+  resolveFilesDir,
+  ensureStorageDir,
+  getDefaultQuota,
+  lyricsOnlineEnabled,
+  isStorageError,
+} from '../db.js'
 import { config } from '../config.js'
 import { requireAdmin, fail, userIdOf } from '../auth.js'
 import { hashPassword } from '../password.js'
@@ -320,6 +328,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       storageDir,
       storageAvailable,
       trashRetentionDays: config.trashRetentionDays,
+      lyricsOnline: lyricsOnlineEnabled(),
       diskTotal: disk.total,
       diskFree: disk.free,
       userCount: (db.prepare('SELECT COUNT(*) AS c FROM users').get() as any).c,
@@ -336,6 +345,11 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       const q = Number(body.defaultQuota)
       if (Number.isNaN(q) || q < 0) return fail(reply, 400, 'Некорректная квота по умолчанию')
       setSetting('default_quota', String(q))
+    }
+
+    if (body.lyricsOnline !== undefined) {
+      // выключение убирает запросы к lrclib.net (наружу уходят артист и название трека)
+      setSetting('lyrics_online', body.lyricsOnline ? '1' : '0')
     }
 
     if (body.storageDir !== undefined && body.storageDir !== null && String(body.storageDir).trim() !== '') {

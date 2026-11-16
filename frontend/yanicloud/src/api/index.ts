@@ -30,6 +30,7 @@ export interface AdminSettings {
   storageDir: string
   storageAvailable: boolean
   trashRetentionDays: number
+  lyricsOnline: boolean
   diskTotal: number
   diskFree: number
   userCount: number
@@ -408,6 +409,7 @@ export async function adminGetUserMigration(id: number): Promise<Migration | nul
 export async function adminUpdateSettings(data: {
   defaultQuota?: number | null
   storageDir?: string
+  lyricsOnline?: boolean
 }): Promise<AdminSettings> {
   return request<AdminSettings>('/api/admin/settings', {
     method: 'PUT',

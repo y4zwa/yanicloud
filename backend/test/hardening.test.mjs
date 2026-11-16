@@ -188,6 +188,36 @@ test('смена пароля отзывает старые токены', async
   assert.equal(fresh.statusCode, 200, fresh.body)
 })
 
+test('LRCLIB выключается в админке, старый кэш из него перестаёт отдаваться', async () => {
+  await ensureAdmin()
+  const before = await json('GET', '/api/admin/settings', undefined, adminToken)
+  assert.equal(before.json().lyricsOnline, true)
+
+  const off = await json('PUT', '/api/admin/settings', { lyricsOnline: false }, adminToken)
+  assert.equal(off.statusCode, 200, off.body)
+  assert.equal(off.json().lyricsOnline, false)
+
+  const song = await upload(adminToken, 'zz-song.mp3', 'not really an mp3', null, 'audio/mpeg')
+  // как будто текст уже приехал из LRCLIB и лежит в кэше
+  const cacheFile = path.join(dataDir, 'cache', `lyrics-${song.id}.json`)
+  fs.mkdirSync(path.dirname(cacheFile), { recursive: true })
+  fs.writeFileSync(
+    cacheFile,
+    JSON.stringify({ at: Date.now(), result: { lines: [{ t: 1, text: 'из LRCLIB' }], synced: true, source: 'lrclib' } })
+  )
+
+  const lyrics = await json('GET', `/api/files/${song.id}/lyrics`, undefined, adminToken)
+  assert.equal(lyrics.statusCode, 200, lyrics.body)
+  assert.notEqual(lyrics.json().source, 'lrclib', 'кэш из LRCLIB не должен отдаваться при выключенном поиске')
+  // файл кэша перезаписывается результатом «текста нет», старого LRCLIB в нём быть не должно
+  const cacheAfter = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
+  assert.notEqual(cacheAfter.result.source, 'lrclib')
+
+  const on = await json('PUT', '/api/admin/settings', { lyricsOnline: true }, adminToken)
+  assert.equal(on.json().lyricsOnline, true)
+  await json('DELETE', `/api/files/${song.id}/permanent`, undefined, adminToken)
+})
+
 test('токен удалённого пользователя перестаёт работать', async () => {
   await ensureAdmin()
   const created = await json('POST', '/api/admin/users', { username: 'tempuser', password: 'tempsecret' }, adminToken)

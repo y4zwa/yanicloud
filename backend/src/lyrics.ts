@@ -1,8 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { parseFile } from 'music-metadata'
-import { db, getCacheDir, resolveUserFilesDir } from './db.js'
-import { config } from './config.js'
+import { db, getCacheDir, resolveUserFilesDir, lyricsOnlineEnabled } from './db.js'
 import type { Node } from './types.js'
 
 export interface LyricsWord {
@@ -311,6 +310,14 @@ function writeCache(node: Node, result: LyricsResult): void {
   }
 }
 
+function removeCache(node: Node): void {
+  try {
+    fs.rmSync(cachePath(node), { force: true })
+  } catch {
+    /* кэш не критичен */
+  }
+}
+
 export async function getLyrics(userId: number, node: Node, fullPath: string): Promise<LyricsResult> {
   // 1. .lrc-файл рядом с треком — он всегда важнее кэша и внешних источников
   const lrc = sidecarLyrics(userId, node)
@@ -326,7 +333,14 @@ export async function getLyrics(userId: number, node: Node, fullPath: string): P
     }
   }
 
-  const cached = readCache(node)
+  // Внешний каталог может быть выключен в админке: тогда старый кэш из LRCLIB не отдаём,
+  // иначе переключатель действовал бы только на новые треки.
+  const online = lyricsOnlineEnabled()
+  let cached = readCache(node)
+  if (cached && cached.source === 'lrclib' && !online) {
+    removeCache(node)
+    cached = null
+  }
   if (cached) return cached
 
   let lines: LyricsLine[] = []
@@ -345,7 +359,7 @@ export async function getLyrics(userId: number, node: Node, fullPath: string): P
   }
 
   // 3. LRCLIB (внешний каталог синхронизированных текстов), если это разрешено настройкой
-  if (!lines.length && config.lyricsOnline) {
+  if (!lines.length && online) {
     try {
       if (!track) track = await parseFile(fullPath, { duration: true }).catch(() => null)
       const title = String(lastItem(track?.common?.title) ?? '').trim()

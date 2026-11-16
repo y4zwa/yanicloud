@@ -209,6 +209,16 @@ export function getDefaultQuota(): number {
   return config.defaultQuota
 }
 
+/**
+ * Искать ли тексты песен во внешнем каталоге LRCLIB. Запрос отправляет наружу артиста
+ * и название трека, поэтому это настройка: в админке можно выключить, NULL — значение из окружения.
+ */
+export function lyricsOnlineEnabled(): boolean {
+  const s = getSetting('lyrics_online')
+  if (s === null) return config.lyricsOnline
+  return s === '1'
+}
+
 export function reservedQuotaBytes(excludeUserId?: number): number {
   const row = excludeUserId
     ? db

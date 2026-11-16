@@ -1,5 +1,4 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import Database from 'better-sqlite3'
 import { config, dbPath, filesDir, cacheDir } from './config.js'
@@ -89,6 +88,10 @@ if (!userCols.some((c) => c.name === 'banner_zoom')) {
 if (!userCols.some((c) => c.name === 'banner_crop')) {
   db.exec('ALTER TABLE users ADD COLUMN banner_crop TEXT')
 }
+// NULL = пользователь ещё не выбирал акцентную тему (см. accent-settings.ts)
+if (!userCols.some((c) => c.name === 'accent_id')) {
+  db.exec('ALTER TABLE users ADD COLUMN accent_id TEXT')
+}
 
 const nodeCols = db.prepare('PRAGMA table_info(nodes)').all() as any[]
 if (!nodeCols.some((c) => c.name === 'hidden_recent')) {
@@ -176,7 +179,9 @@ export function getDefaultQuota(): number {
 
 export function reservedQuotaBytes(excludeUserId?: number): number {
   const row = excludeUserId
-    ? db.prepare('SELECT COALESCE(SUM(quota_bytes), 0) AS s FROM users WHERE quota_bytes > 0 AND id != ?').get(excludeUserId)
+    ? db
+        .prepare('SELECT COALESCE(SUM(quota_bytes), 0) AS s FROM users WHERE quota_bytes > 0 AND id != ?')
+        .get(excludeUserId)
     : db.prepare('SELECT COALESCE(SUM(quota_bytes), 0) AS s FROM users WHERE quota_bytes > 0').get()
   return (row as any)?.s ?? 0
 }
@@ -214,7 +219,8 @@ export function getUserFilesDir(userId: number): string {
 
 export function toPublic(node: any): any {
   if (!node) return null
-  const { userId, storageKey, ...rest } = node
+  // userId наружу не отдаём (он и так известен из сессии), storageKey — это путь на диске
+  const { userId: _userId, storageKey: _storageKey, ...rest } = node
   return rest
 }
 

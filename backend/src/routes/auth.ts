@@ -10,6 +10,7 @@ import {
   normalizeBannerPosition,
   normalizeBannerZoom,
 } from '../banner-settings.js'
+import { normalizeAccentId } from '../accent-settings.js'
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
 const SESSION_TTL = '30d'
@@ -25,6 +26,7 @@ function publicUser(row: any) {
     bannerPosition: normalizeBannerPosition(row.banner_position),
     bannerZoom: normalizeBannerZoom(row.banner_zoom),
     bannerCrop: normalizeBannerCrop(row.banner_crop),
+    accentId: normalizeAccentId(row.accent_id),
   }
 }
 
@@ -100,5 +102,23 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(sub)) as any
     if (!row) return fail(reply, 404, 'Пользователь не найден')
     return { user: publicUser(row) }
+  })
+
+  // Личные настройки пользователя (сейчас — только акцентная тема).
+  app.patch('/api/auth/preferences', { preHandler: requireAuth }, async (req, reply) => {
+    const id = Number((req as any).user?.sub)
+    const body = req.body as any
+
+    if (body?.accentId === undefined) return fail(reply, 400, 'Нет настроек для сохранения')
+
+    const accentId = normalizeAccentId(body.accentId)
+    if (!accentId) return fail(reply, 400, 'Неизвестная акцентная тема')
+
+    const row = db.prepare('SELECT id FROM users WHERE id = ?').get(id) as any
+    if (!row) return fail(reply, 404, 'Пользователь не найден')
+
+    db.prepare('UPDATE users SET accent_id = ? WHERE id = ?').run(accentId, id)
+    const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any
+    return { user: publicUser(updated) }
   })
 }

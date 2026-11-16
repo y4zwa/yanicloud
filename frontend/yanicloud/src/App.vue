@@ -141,19 +141,18 @@ import FileDetailsDialog from '@/components/FileDetailsDialog.vue'
 import AudioPlayerBar from '@/components/AudioPlayerBar.vue'
 import PinnedRail from '@/components/PinnedRail.vue'
 import FileThumb from '@/components/FileThumb.vue'
-import { getToken, me, searchFiles, type NodeItem } from '@/api'
+import { getToken, me, savePreferences, searchFiles, type NodeItem } from '@/api'
 import { setUser, logout, currentUser } from '@/store/auth'
 import { requestOpenFolder, requestGoHome } from '@/store/nav'
 import { openPreview } from '@/store/preview'
-import { openDetails } from '@/store/details'
 import { lyricsOpen } from '@/store/lyrics'
 import { playTrack } from '@/store/player'
 import { startPinDrag, endPinDrag } from '@/store/pins'
 import { useThumbs } from '@/composables/useThumbs'
 import { isAudio } from '@/utils/preview'
-import { applyAccent, getAccentId, vuetifyThemeColors } from '@/utils/theme'
+import { getAccentId, setAccentId, vuetifyThemeColors } from '@/utils/theme'
 import { attachSmoothScroll, type SmoothScrollHandle } from '@/utils/smoothScroll'
-import { fileIcon, fileColor, fileBg, initials, formatBytes } from '@/utils/format'
+import { initials, formatBytes } from '@/utils/format'
 
 const authed = ref(false)
 const currentView = ref<'files' | 'favorites' | 'trash' | 'settings'>('files')
@@ -176,12 +175,29 @@ watch(
 
 const vuetifyTheme = useTheme()
 
-function syncAccent(): void {
-  const scheme = applyAccent(getAccentId())
+function syncAccent(id: string): void {
+  const scheme = setAccentId(id)
   const dark = vuetifyTheme.themes.value.dark
   if (dark?.colors) Object.assign(dark.colors, vuetifyThemeColors(scheme))
 }
-syncAccent()
+syncAccent(getAccentId())
+
+/**
+ * Акцентная тема привязана к аккаунту: при входе берём её с сервера, иначе
+ * на другом устройстве аккаунт открывался бы с дефолтным цветом.
+ * `accentId === null` значит, что пользователь ещё не выбирал тему привязки —
+ * тогда забираем локальную, чтобы у старых аккаунтов цвет не сбросился.
+ */
+watch(currentUser, (user) => {
+  if (!user) return
+  const id = user.accentId || getAccentId()
+  syncAccent(id)
+  if (user.accentId !== id) {
+    savePreferences({ accentId: id })
+      .then((updated) => setUser(updated))
+      .catch(() => undefined)
+  }
+})
 
 const { thumbUrls, loadThumbs } = useThumbs()
 

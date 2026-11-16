@@ -268,6 +268,7 @@
           </div>
 
           <!-- КАРТОЧКА ПЕРЕНОСА НА ДРУГОЙ ДИСК -->
+          <!-- eslint-disable-next-line vue/valid-v-for -- элемента ровно один на пользователя, ключ стабилен по user.id -->
           <template v-for="m in [migrationFor(user)]" :key="'mig-' + user.id">
             <v-expand-transition>
               <div v-if="m" class="mig-card" :class="'mig-card--' + migKind(m)">
@@ -409,6 +410,7 @@ import {
   uploadBanner,
   updateBannerSettings,
   deleteBanner,
+  savePreferences,
   ApiError,
   type AdminUser,
   type AdminSettings,
@@ -420,7 +422,7 @@ import BannerTile from '@/components/BannerTile.vue'
 import BannerCropEditor from '@/components/BannerCropEditor.vue'
 import type { BannerCrop, BannerFit, BannerInfo, BannerPosition } from '@/utils/banner'
 import { formatBannerCrop, parseBannerCrop } from '@/utils/banner'
-import { currentUser } from '@/store/auth'
+import { currentUser, setUser } from '@/store/auth'
 import { formatBytes } from '@/utils/format'
 import { ACCENTS, getAccentId, setAccentId, vuetifyThemeColors } from '@/utils/theme'
 import { pulseThemeChange } from '@/utils/motion'
@@ -435,6 +437,10 @@ function chooseAccent(id: string): void {
   const dark = vuetifyTheme.themes.value.dark
   if (dark?.colors) Object.assign(dark.colors, vuetifyThemeColors(scheme))
   pulseThemeChange()
+  // тема живёт на аккаунте, а не в браузере: иначе на другом устройстве она не появится
+  savePreferences({ accentId: id })
+    .then((user) => setUser(user))
+    .catch(() => undefined)
 }
 
 function pickBanner(): void {

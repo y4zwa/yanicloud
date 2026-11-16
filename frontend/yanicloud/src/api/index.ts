@@ -10,6 +10,8 @@ export interface User {
   bannerPosition?: BannerPosition
   bannerZoom?: number
   bannerCrop?: string | null
+  /** null — пользователь ещё не выбирал акцентную тему */
+  accentId?: string | null
 }
 
 export interface AdminUser {
@@ -188,6 +190,15 @@ export async function me(): Promise<User> {
   return res.user
 }
 
+/** Личные настройки аккаунта (акцентная тема живёт на сервере, а не в браузере). */
+export async function savePreferences(prefs: { accentId?: string }): Promise<User> {
+  const res = await request<{ user: User }>('/api/auth/preferences', {
+    method: 'PATCH',
+    body: JSON.stringify(prefs),
+  })
+  return res.user
+}
+
 export async function listFiles(parentId?: string | null): Promise<NodeItem[]> {
   const q = parentId ? `?parent=${encodeURIComponent(parentId)}` : ''
   const res = await request<{ items: NodeItem[] }>(`/api/files${q}`)
@@ -260,7 +271,9 @@ export function uploadFiles(
 }
 
 export async function downloadFile(node: NodeItem): Promise<void> {
-  const res = await request<{ url: string }>(`/api/files/${node.id}/download-url`, { method: 'POST' })
+  const res = await request<{ url: string }>(`/api/files/${node.id}/download-url`, {
+    method: 'POST',
+  })
   const a = document.createElement('a')
   a.href = res.url
   a.download = node.name
@@ -274,15 +287,24 @@ export async function renameNode(id: string, name: string): Promise<NodeItem> {
 }
 
 export async function setFavorite(id: string, isFavorite: boolean): Promise<NodeItem> {
-  return request<NodeItem>(`/api/files/${id}`, { method: 'PATCH', body: JSON.stringify({ isFavorite }) })
+  return request<NodeItem>(`/api/files/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isFavorite }),
+  })
 }
 
 export async function setHiddenRecent(id: string, hidden: boolean): Promise<NodeItem> {
-  return request<NodeItem>(`/api/files/${id}`, { method: 'PATCH', body: JSON.stringify({ hiddenRecent: hidden }) })
+  return request<NodeItem>(`/api/files/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ hiddenRecent: hidden }),
+  })
 }
 
 export async function moveNode(id: string, parentId: string | null): Promise<NodeItem> {
-  return request<NodeItem>(`/api/files/${id}`, { method: 'PATCH', body: JSON.stringify({ parentId }) })
+  return request<NodeItem>(`/api/files/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ parentId }),
+  })
 }
 
 export async function trashNode(id: string): Promise<void> {
@@ -357,7 +379,12 @@ export async function adminCreateUser(data: {
 
 export async function adminUpdateUser(
   id: number,
-  data: { quotaBytes?: number | null; isAdmin?: boolean; password?: string; storagePath?: string | null }
+  data: {
+    quotaBytes?: number | null
+    isAdmin?: boolean
+    password?: string
+    storagePath?: string | null
+  }
 ): Promise<{ user: AdminUser; migration: Migration | null }> {
   return request(`/api/admin/users/${id}`, {
     method: 'PATCH',
@@ -382,7 +409,10 @@ export async function adminUpdateSettings(data: {
   defaultQuota?: number | null
   storageDir?: string
 }): Promise<AdminSettings> {
-  return request<AdminSettings>('/api/admin/settings', { method: 'PUT', body: JSON.stringify(data) })
+  return request<AdminSettings>('/api/admin/settings', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
 }
 
 export async function adminGetDisks(): Promise<AdminDisk[]> {

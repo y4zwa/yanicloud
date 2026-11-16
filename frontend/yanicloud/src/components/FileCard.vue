@@ -15,7 +15,7 @@
         </div>
         <div class="text-body-2 text-on-surface-variant">{{ formatDate(node.updatedAt) }}</div>
       </div>
-      <v-menu>
+      <v-menu content-class="m3-menu">
         <template v-slot:activator="{ props }">
           <v-btn
             v-bind="props"
@@ -42,7 +42,13 @@
               @click="emit('details')"
             ></v-list-item>
             <v-list-item prepend-icon="mdi-pencil-outline" title="Переименовать" @click="emit('rename')"></v-list-item>
-            <v-list-item prepend-icon="mdi-delete-outline" title="Удалить" @click="emit('delete')"></v-list-item>
+            <v-divider></v-divider>
+            <v-list-item
+              class="m3-menu-danger"
+              prepend-icon="mdi-delete-outline"
+              title="Удалить"
+              @click="emit('delete')"
+            ></v-list-item>
           </template>
           <template v-else>
             <v-list-item prepend-icon="mdi-download" title="Скачать" @click="emit('download')"></v-list-item>

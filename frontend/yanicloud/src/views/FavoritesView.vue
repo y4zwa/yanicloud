@@ -41,7 +41,7 @@
               {{ item.type === 'folder' ? `${item.items ?? 0} элементов` : formatBytes(item.size) }}
             </div>
           </div>
-          <v-menu>
+          <v-menu content-class="m3-menu">
             <template v-slot:activator="{ props }">
               <v-btn v-bind="props" icon="mdi-dots-vertical" variant="text" color="on-surface-variant" @click.stop></v-btn>
             </template>
@@ -54,7 +54,8 @@
               <v-list-item v-if="item.type === 'file'" prepend-icon="mdi-download" title="Скачать" @click="download(item)"></v-list-item>
               <v-list-item v-if="item.type === 'file'" prepend-icon="mdi-information-outline" title="Подробности" @click="openDetails(item)"></v-list-item>
               <v-list-item v-else prepend-icon="mdi-folder-open-outline" title="Открыть" @click="open(item)"></v-list-item>
-              <v-list-item prepend-icon="mdi-delete-outline" title="Удалить" @click="remove(item)"></v-list-item>
+              <v-divider></v-divider>
+              <v-list-item class="m3-menu-danger" prepend-icon="mdi-delete-outline" title="Удалить" @click="remove(item)"></v-list-item>
             </v-list>
           </v-menu>
         </div>

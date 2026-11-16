@@ -266,7 +266,7 @@
           >
             <div class="d-flex justify-space-between align-start mb-6">
               <v-icon :icon="fileIcon(folder)" :color="fileColor(folder)" size="52"></v-icon>
-              <v-menu>
+              <v-menu content-class="m3-menu">
                 <template v-slot:activator="{ props }">
                   <v-btn
                     v-bind="props"
@@ -287,7 +287,13 @@
                     @click="toggleFavorite(folder)"
                   ></v-list-item>
                   <v-list-item prepend-icon="mdi-pencil-outline" title="Переименовать" @click="openRename(folder)"></v-list-item>
-                  <v-list-item prepend-icon="mdi-delete-outline" title="Удалить" @click="removeNode(folder)"></v-list-item>
+                  <v-divider></v-divider>
+                  <v-list-item
+                    class="m3-menu-danger"
+                    prepend-icon="mdi-delete-outline"
+                    title="Удалить"
+                    @click="removeNode(folder)"
+                  ></v-list-item>
                 </v-list>
               </v-menu>
             </div>

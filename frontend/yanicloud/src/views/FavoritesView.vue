@@ -70,7 +70,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { listFavorites, downloadFile, setFavorite, trashNode, ApiError, type NodeItem } from '@/api'
-import { formatBytes, fileIcon, fileColor, fileBg } from '@/utils/format'
+import { formatBytes } from '@/utils/format'
 import { requestOpenFolder } from '@/store/nav'
 import { openPreview } from '@/store/preview'
 import { openDetails } from '@/store/details'

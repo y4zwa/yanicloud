@@ -1,5 +1,7 @@
 # YaniCloud
 
+[![CI](https://github.com/y4zwa/yanicloud/actions/workflows/ci.yml/badge.svg)](https://github.com/y4zwa/yanicloud/actions/workflows/ci.yml)
+
 Селфхостед хранилище файлов для домашнего сервера. Файлы лежат у вас, доступ — через веб-интерфейс.
 
 Стек: Vue 3 + Vuetify (фронтенд), Fastify + SQLite (бэкенд), сборка в один Docker-образ.
@@ -72,6 +74,31 @@ docker compose up -d --build
 - Аутентификация по JWT; секрет генерируется случайно при первом запуске и хранится в `data/.jwt-secret`
 - Файлы хранятся по случайным ключам (UUID), пути к файлам не зависят от имён пользователя
 - SQL — только параметризованные запросы; встроенные конвертеры вызываются без shell
+
+## Разработка
+
+Нужны Node.js 22 и npm. Каждая часть ставится отдельно:
+
+```bash
+cd backend           && npm ci
+cd frontend/yanicloud && npm ci
+```
+
+Запуск: бэкенд на `8080`, фронтенд на `3000` (Vite проксирует `/api` на бэкенд):
+
+```bash
+cd backend            && npm run dev
+cd frontend/yanicloud && npm run dev
+```
+
+Проверки — то же, что гоняет CI:
+
+```bash
+cd backend            && npm run typecheck && npm run lint && npm test
+cd frontend/yanicloud && npm run type-check && npm run lint
+```
+
+Форматирование (Prettier) — из корня репозитория: `npm ci && npm run format`. Конфиг в `.prettierrc.json`; `.vue` исключены, разметку шаблонов правим руками.
 
 ## Резервное копирование
 

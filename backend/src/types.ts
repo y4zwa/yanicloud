@@ -26,7 +26,7 @@ export interface Node {
   items?: number
 }
 
-export interface PublicNode extends Omit<Node, 'userId'> {}
+export type PublicNode = Omit<Node, 'userId'>
 
 export interface PublicUser {
   id: number

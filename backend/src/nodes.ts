@@ -16,17 +16,17 @@ export function getQuota(userId: number): number {
 }
 
 export function usedBytes(userId: number): number {
-  const row = db.prepare(
-    "SELECT COALESCE(SUM(size), 0) AS s FROM nodes WHERE user_id = ? AND type = 'file' AND deleted_at IS NULL"
-  ).get(userId) as any
+  const row = db
+    .prepare("SELECT COALESCE(SUM(size), 0) AS s FROM nodes WHERE user_id = ? AND type = 'file' AND deleted_at IS NULL")
+    .get(userId) as any
   return row?.s ?? 0
 }
 
 export function resolveParent(userId: number, parentId: string | null | undefined): string | null {
   if (!parentId) return null
-  const row = db.prepare(
-    "SELECT id, type FROM nodes WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
-  ).get(parentId, userId) as any
+  const row = db
+    .prepare('SELECT id, type FROM nodes WHERE id = ? AND user_id = ? AND deleted_at IS NULL')
+    .get(parentId, userId) as any
   if (!row || row.type !== 'folder') {
     throw new Error('Папка не найдена')
   }
@@ -102,20 +102,22 @@ export function createFile(
 }
 
 export function permanentDelete(userId: number, id: string): void {
-  const rows = db.prepare(
-    `WITH RECURSIVE descendants(id) AS (
+  const rows = db
+    .prepare(
+      `WITH RECURSIVE descendants(id) AS (
        SELECT id FROM nodes WHERE id = ? AND user_id = ?
        UNION ALL
        SELECT n.id FROM nodes n JOIN descendants d ON n.parent_id = d.id WHERE n.user_id = ?
      )
      SELECT id, storage_key, type FROM nodes WHERE id IN (SELECT id FROM descendants)`
-  ).all(id, userId, userId) as any[]
+    )
+    .all(id, userId, userId) as any[]
 
   const ids: string[] = []
   // Файлы пользователя могут лежать в его собственном каталоге (storage_path),
   // а не в глобальном storage_dir — удалять нужно именно оттуда.
   const dir = resolveUserFilesDir(userId)
-  
+
   for (const r of rows) {
     ids.push(r.id)
     if (r.type === 'file' && r.storage_key) {
@@ -124,7 +126,7 @@ export function permanentDelete(userId: number, id: string): void {
   }
 
   clearNodesCache(ids)
-  
+
   if (ids.length) {
     const deleteStmt = db.prepare('DELETE FROM nodes WHERE id = ?')
     const deleteTx = db.transaction((items: string[]) => {
@@ -201,9 +203,9 @@ export function purgeTrash(retentionDays: number): number {
 }
 
 export function deleteUserFiles(userId: number): void {
-  const rows = db.prepare(
-    "SELECT id, storage_key FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL"
-  ).all(userId) as any[]
+  const rows = db
+    .prepare("SELECT id, storage_key FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL")
+    .all(userId) as any[]
   const dir = resolveUserFilesDir(userId)
   for (const r of rows) {
     if (r.storage_key) fs.rmSync(path.join(dir, r.storage_key), { force: true })

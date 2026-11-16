@@ -34,7 +34,10 @@ async function saveStill(buf: Buffer, dst: string): Promise<void> {
   try {
     await sharp(buf, { limitInputPixels: 100_000_000 })
       .rotate()
-      .resize(MAX_BANNER_DIMENSION, MAX_BANNER_DIMENSION, { fit: 'inside', withoutEnlargement: true })
+      .resize(MAX_BANNER_DIMENSION, MAX_BANNER_DIMENSION, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
       .jpeg({ quality: 88 })
       .toFile(tmp)
     fs.renameSync(tmp, dst)
@@ -152,9 +155,7 @@ export async function bannerRoutes(app: FastifyInstance): Promise<void> {
       .prepare('SELECT banner_fit, banner_position, banner_zoom, banner_crop FROM users WHERE id = ?')
       .get(userId) as any
     const fit = normalizeBannerFit(body.fit === undefined ? current?.banner_fit : body.fit)
-    const position = normalizeBannerPosition(
-      body.position === undefined ? current?.banner_position : body.position
-    )
+    const position = normalizeBannerPosition(body.position === undefined ? current?.banner_position : body.position)
     const zoom = normalizeBannerZoom(body.zoom === undefined ? current?.banner_zoom : body.zoom)
     const crop = normalizeBannerCrop(body.crop === undefined ? current?.banner_crop : body.crop)
     db.prepare(

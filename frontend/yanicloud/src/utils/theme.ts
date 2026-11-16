@@ -37,13 +37,62 @@ export interface AccentScheme {
 }
 
 export const ACCENTS: AccentPalette[] = [
-  { id: 'purple', name: 'Фиолетовый', primary: '#D0BCFF', onPrimary: '#381E72', primaryContainer: '#4F378B', onPrimaryContainer: '#EADDFF' },
-  { id: 'blue', name: 'Синий', primary: '#ADC6FF', onPrimary: '#002E69', primaryContainer: '#284777', onPrimaryContainer: '#D8E2FF' },
-  { id: 'cyan', name: 'Голубой', primary: '#80D6EE', onPrimary: '#00363F', primaryContainer: '#004E5A', onPrimaryContainer: '#B5EBF7' },
-  { id: 'green', name: 'Зелёный', primary: '#A1F1C5', onPrimary: '#0A3B21', primaryContainer: '#2A5538', onPrimaryContainer: '#C3F7D7' },
-  { id: 'orange', name: 'Оранжевый', primary: '#FFB68C', onPrimary: '#4A2700', primaryContainer: '#6C3C00', onPrimaryContainer: '#FFDCC3' },
-  { id: 'pink', name: 'Розовый', primary: '#FFB1C8', onPrimary: '#5F1133', primaryContainer: '#7C2A4A', onPrimaryContainer: '#FFD9E2' },
-  { id: 'red', name: 'Красный', primary: '#FFB4AB', onPrimary: '#690005', primaryContainer: '#93000A', onPrimaryContainer: '#FFDAD6' },
+  {
+    id: 'purple',
+    name: 'Фиолетовый',
+    primary: '#D0BCFF',
+    onPrimary: '#381E72',
+    primaryContainer: '#4F378B',
+    onPrimaryContainer: '#EADDFF',
+  },
+  {
+    id: 'blue',
+    name: 'Синий',
+    primary: '#ADC6FF',
+    onPrimary: '#002E69',
+    primaryContainer: '#284777',
+    onPrimaryContainer: '#D8E2FF',
+  },
+  {
+    id: 'cyan',
+    name: 'Голубой',
+    primary: '#80D6EE',
+    onPrimary: '#00363F',
+    primaryContainer: '#004E5A',
+    onPrimaryContainer: '#B5EBF7',
+  },
+  {
+    id: 'green',
+    name: 'Зелёный',
+    primary: '#A1F1C5',
+    onPrimary: '#0A3B21',
+    primaryContainer: '#2A5538',
+    onPrimaryContainer: '#C3F7D7',
+  },
+  {
+    id: 'orange',
+    name: 'Оранжевый',
+    primary: '#FFB68C',
+    onPrimary: '#4A2700',
+    primaryContainer: '#6C3C00',
+    onPrimaryContainer: '#FFDCC3',
+  },
+  {
+    id: 'pink',
+    name: 'Розовый',
+    primary: '#FFB1C8',
+    onPrimary: '#5F1133',
+    primaryContainer: '#7C2A4A',
+    onPrimaryContainer: '#FFD9E2',
+  },
+  {
+    id: 'red',
+    name: 'Красный',
+    primary: '#FFB4AB',
+    onPrimary: '#690005',
+    primaryContainer: '#93000A',
+    onPrimaryContainer: '#FFDAD6',
+  },
 ]
 
 const KEY = 'yanicloud_accent'
@@ -72,12 +121,14 @@ function clamp(v: number, min: number, max: number): number {
 
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '')
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
-  return [
-    parseInt(full.slice(0, 2), 16),
-    parseInt(full.slice(2, 4), 16),
-    parseInt(full.slice(4, 6), 16),
-  ]
+  const full =
+    h.length === 3
+      ? h
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : h
+  return [parseInt(full.slice(0, 2), 16), parseInt(full.slice(2, 4), 16), parseInt(full.slice(4, 6), 16)]
 }
 
 function rgbToHue(r: number, g: number, b: number): number {

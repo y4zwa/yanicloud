@@ -37,6 +37,7 @@ function dedupe(lines: LyricsLine[]): LyricsLine[] {
   const out: LyricsLine[] = []
   const seen = new Set<string>()
   for (const line of lines) {
+    // eslint-disable-next-line no-control-regex -- вычищаем NUL-байты из тегов
     const text = line.text.replace(/\u0000/g, '').trim()
     if (!text) continue
     const key = `${line.t ?? 'x'}|${text}`
@@ -123,7 +124,9 @@ export function parseLrc(input: string): LyricsLine[] {
     if (!text) continue
     const words = parseWords(row.slice(end))
     for (const t of times) {
-      lines.push(words.length >= 2 ? { t: Math.max(0, t + offset), text, w: words } : { t: Math.max(0, t + offset), text })
+      lines.push(
+        words.length >= 2 ? { t: Math.max(0, t + offset), text, w: words } : { t: Math.max(0, t + offset), text }
+      )
     }
   }
 
@@ -208,11 +211,7 @@ interface LrclibItem {
   plainLyrics?: string | null
 }
 
-async function fromLrclib(
-  title: string,
-  artist: string,
-  duration?: number
-): Promise<LyricsLine[] | null> {
+async function fromLrclib(title: string, artist: string, duration?: number): Promise<LyricsLine[] | null> {
   const cleanTitle =
     artist && title.toLowerCase().startsWith(artist.toLowerCase())
       ? title.slice(artist.length).replace(/^[\s\-–—:.]+/, '')
@@ -317,7 +316,11 @@ export async function getLyrics(userId: number, node: Node, fullPath: string): P
   if (lrc) {
     const lines = dedupe(parseLrc(lrc))
     if (lines.length) {
-      const result: LyricsResult = { lines, synced: lines.some((l) => typeof l.t === 'number'), source: 'lrc' }
+      const result: LyricsResult = {
+        lines,
+        synced: lines.some((l) => typeof l.t === 'number'),
+        source: 'lrc',
+      }
       return result
     }
   }

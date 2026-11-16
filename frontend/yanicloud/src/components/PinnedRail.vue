@@ -26,7 +26,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
-import { pins, loadPins, unpin, readPinDrag, pin, draggingPin, endPinDrag } from '@/store/pins'
+import { pins, loadPins, unpin, readPinDrag, pin, endPinDrag } from '@/store/pins'
 import { useThumbs } from '@/composables/useThumbs'
 import { fileIcon, fileColor } from '@/utils/format'
 import { openPreview } from '@/store/preview'

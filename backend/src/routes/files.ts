@@ -42,10 +42,11 @@ const LIST_SQL = `
  * Кириллица и прочие символы передаются в `filename*` в percent-encoding.
  */
 function attachmentDisposition(filename: string): string {
-  const fallback = filename
-    .replace(/[^\x20-\x7e]/g, '_')
-    .replace(/["\\]/g, '_')
-    .slice(0, 200) || 'download'
+  const fallback =
+    filename
+      .replace(/[^\x20-\x7e]/g, '_')
+      .replace(/["\\]/g, '_')
+      .slice(0, 200) || 'download'
   const encoded = encodeURIComponent(filename).replace(
     /[!'()*]/g,
     (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
@@ -83,18 +84,17 @@ function streamInline(reply: FastifyReply, req: FastifyRequest, filePath: string
   return reply.send(fs.createReadStream(filePath))
 }
 
-async function mediaAuth(
-  app: FastifyInstance,
-  req: FastifyRequest,
-  reply: FastifyReply
-): Promise<number | null> {
+async function mediaAuth(app: FastifyInstance, req: FastifyRequest, reply: FastifyReply): Promise<number | null> {
   const t = (req.query as any)?.t
   if (t) {
     try {
       const payload = app.jwt.verify(t) as any
       if (
         payload &&
-        (payload.kind === 'stream' || payload.kind === 'thumb' || payload.kind === 'download' || payload.kind === 'cover') &&
+        (payload.kind === 'stream' ||
+          payload.kind === 'thumb' ||
+          payload.kind === 'download' ||
+          payload.kind === 'cover') &&
         payload.id === (req.params as any).id
       ) {
         return Number(payload.sub)
@@ -245,7 +245,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
         const fullPath = path.join(getUserFilesDir(userId), storageKey)
         let size = 0
         let quotaExceeded = false
-        
+
         const used = usedBytes(userId)
         const quota = getQuota(userId)
 
@@ -270,7 +270,7 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
           }
           if (err.message === 'QUOTA_EXCEEDED' || quotaExceeded) {
             quotaErr = 'Недостаточно места в хранилище'
-            break 
+            break
           }
           throw err
         }
@@ -448,7 +448,8 @@ export async function filesRoutes(app: FastifyInstance): Promise<void> {
     return reply.send(fs.createReadStream(fullPath))
   })
 
-  app.get('/api/files/:id/details', { preHandler: requireAuth }, async (req, reply) => {    const userId = userIdOf(req)
+  app.get('/api/files/:id/details', { preHandler: requireAuth }, async (req, reply) => {
+    const userId = userIdOf(req)
     const { id } = req.params as any
     const node = getNode(userId, id)
     if (!node || node.deletedAt) return fail(reply, 404, 'Не найдено')

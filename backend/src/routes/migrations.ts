@@ -1,4 +1,3 @@
-
 import fs from 'node:fs'
 import type { Dirent, Stats } from 'node:fs'
 import fsp from 'node:fs/promises'
@@ -8,14 +7,7 @@ import { diskInfo } from '../disk.js'
 import { config } from '../config.js'
 
 export type MigrationStatus =
-  | 'preparing'
-  | 'copying'
-  | 'verifying'
-  | 'switching'
-  | 'resyncing'
-  | 'cleaning'
-  | 'done'
-  | 'failed'
+  'preparing' | 'copying' | 'verifying' | 'switching' | 'resyncing' | 'cleaning' | 'done' | 'failed'
 
 export interface MigrationJob {
   userId: number
@@ -94,10 +86,7 @@ function isWithin(child: string, parent: string): boolean {
   return c === p || c.startsWith(p + path.sep)
 }
 
-async function walkFiles(
-  root: string,
-  cb: (rel: string, abs: string, st: Stats) => Promise<void>,
-): Promise<void> {
+async function walkFiles(root: string, cb: (rel: string, abs: string, st: Stats) => Promise<void>): Promise<void> {
   const rootSt = await fsp.stat(root).catch(() => null)
   if (!rootSt) return
   if (rootSt.isFile()) {
@@ -111,7 +100,7 @@ async function walkFiles(
     try {
       entries = await fsp.readdir(dir, { withFileTypes: true })
     } catch (err: any) {
-      if (err?.code === 'ENOENT') continue 
+      if (err?.code === 'ENOENT') continue
       throw err
     }
     for (const e of entries) {
@@ -139,9 +128,7 @@ type UserFile = { key: string; size: number }
 /** Только файлы этого пользователя: общий каталог может содержать чужие UUID. */
 function userFiles(userId: number): UserFile[] {
   const rows = db
-    .prepare(
-      "SELECT storage_key, size FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL"
-    )
+    .prepare("SELECT storage_key, size FROM nodes WHERE user_id = ? AND type = 'file' AND storage_key IS NOT NULL")
     .all(userId) as any[]
   return rows.map((row) => ({ key: row.storage_key, size: Number(row.size) || 0 }))
 }
@@ -189,7 +176,6 @@ async function removeUserFiles(fromDir: string, files: UserFile[]): Promise<void
   }
 }
 
-
 async function verifyTree(from: string, to: string): Promise<void> {
   const src = new Map<string, { size: number; mtimeMs: number }>()
   await walkFiles(from, async (rel, _abs, st) => {
@@ -208,7 +194,6 @@ async function verifyTree(from: string, to: string): Promise<void> {
     }
   }
 }
-
 
 // ---------- перенос файлов пользователя ----------
 
@@ -254,9 +239,7 @@ export async function startUserMigration(userId: number, newStoragePath: string 
   await fsp.mkdir(toDir, { recursive: true })
   const free = diskInfo(toDir).free
   if (files.length && free > 0 && free < totalBytes + 64 * 1024 * 1024) {
-    throw new Error(
-      `Недостаточно места в целевой папке: нужно ${totalBytes} байт, свободно ${free} байт`
-    )
+    throw new Error(`Недостаточно места в целевой папке: нужно ${totalBytes} байт, свободно ${free} байт`)
   }
 
   const job: MigrationJob = {
@@ -434,6 +417,7 @@ export async function moveStorageRoot(from: string, to: string): Promise<void> {
         await fsp.rename(from, to)
         return
       } catch {
+        // rename не удался — ниже сработает копирование
       }
     }
   } else {
@@ -455,7 +439,7 @@ export async function moveStorageRoot(from: string, to: string): Promise<void> {
     } catch (err: any) {
       if (err?.code !== 'EXDEV') throw err
     }
-    
+
     await fsp.cp(src, dst, { recursive: true, force: true })
     await verifyTree(src, dst)
     await fsp.rm(src, { recursive: true, force: true })

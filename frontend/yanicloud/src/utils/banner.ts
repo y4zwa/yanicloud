@@ -2,15 +2,7 @@ export type BannerFit = 'contain' | 'cover'
 
 /** Старое положение кадра из сетки 3×3 (для баннеров, сохранённых до рамки). */
 export type BannerAnchor =
-  | 'left top'
-  | 'top'
-  | 'right top'
-  | 'left'
-  | 'center'
-  | 'right'
-  | 'left bottom'
-  | 'bottom'
-  | 'right bottom'
+  'left top' | 'top' | 'right top' | 'left' | 'center' | 'right' | 'left bottom' | 'bottom' | 'right bottom'
 
 /** Положение кадра: проценты по свободной оси картинки или старый якорь 3×3. */
 export type BannerPosition = BannerAnchor | `${number}% ${number}%`
@@ -103,11 +95,7 @@ export function clampBannerZoom(value: unknown): number {
 }
 
 /** Максимальный кадр пропорций плитки, который целиком влезает в картинку. */
-export function bannerBaseCrop(
-  imageW: number,
-  imageH: number,
-  aspect: number
-): { w: number; h: number } {
+export function bannerBaseCrop(imageW: number, imageH: number, aspect: number): { w: number; h: number } {
   const w = Math.min(imageW, imageH * aspect)
   return { w, h: w / aspect }
 }

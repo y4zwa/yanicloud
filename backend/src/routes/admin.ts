@@ -1,14 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
-import {
-  db,
-  setSetting,
-  resolveFilesDir,
-  ensureStorageDir,
-  getDefaultQuota,
-  isStorageError,
-} from '../db.js'
+import { db, setSetting, resolveFilesDir, ensureStorageDir, getDefaultQuota, isStorageError } from '../db.js'
 import { config } from '../config.js'
 import { requireAdmin, fail, userIdOf } from '../auth.js'
 import { hashPassword } from '../password.js'
@@ -22,7 +15,7 @@ import {
   serializeMigration,
   moveStorageRoot,
   type MigrationJob,
-} from './migrations.js'   
+} from './migrations.js'
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,32}$/
 
@@ -44,7 +37,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       .prepare(
         `SELECT u.id, u.username, u.storage_path, u.is_admin, u.quota_bytes, u.created_at,
           (SELECT COALESCE(SUM(size), 0) FROM nodes n WHERE n.user_id = u.id AND n.type = 'file' AND n.deleted_at IS NULL) AS used
-         FROM users u ORDER BY u.id ASC`,
+         FROM users u ORDER BY u.id ASC`
       )
       .all() as any[]
     return {
@@ -82,7 +75,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const passwordHash = await hashPassword(password)
     const info = db
       .prepare(
-        'INSERT INTO users (username, password_hash, quota_bytes, is_admin, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO users (username, password_hash, quota_bytes, is_admin, storage_path, created_at) VALUES (?, ?, ?, ?, ?, ?)'
       )
       .run(username, passwordHash, quota, isAdmin, storagePath, now)
     const row = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid) as any
@@ -123,7 +116,6 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       params.push(id)
       db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...params)
     }
-
 
     let migration: MigrationJob | null = null
     if (body?.storagePath !== undefined) {

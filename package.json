@@ -1,0 +1,14 @@
+{
+  "name": "yanicloud",
+  "private": true,
+  "version": "1.0.0",
+  "description": "self-hosted cloud for a local server",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

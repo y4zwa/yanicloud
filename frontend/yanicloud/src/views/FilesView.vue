@@ -304,52 +304,22 @@
           <h2 class="text-h5 font-weight-bold text-on-surface">Файлы</h2>
         </div>
         <div class="d-flex flex-wrap gap-6 pb-12">
-          <div
+          <FileCard
             v-for="(file, i) in files"
             :key="file.id"
-            class="m3-card m3-file-card m3-reveal d-flex flex-column pa-5"
+            :node="file"
+            :thumb="thumbUrls[file.id]"
             :style="{ '--i': Math.min(i, 12) }"
-            v-ripple
             draggable="true"
             @dragstart="onCardDragStart($event, file)"
             @dragend="onCardDragEnd"
-            @click="openFile(file)"
-          >
-            <div class="m3-thumb-guard" draggable="false">
-              <FileThumb :node="file" :thumb="thumbUrls[file.id]" />
-            </div>
-            <div class="d-flex align-center justify-space-between mt-auto">
-              <div class="overflow-hidden pr-3">
-                <div class="text-title-medium font-weight-bold text-on-surface text-truncate mb-1">{{ file.name }}</div>
-                <div class="text-body-2 text-on-surface-variant">{{ formatDate(file.updatedAt) }}</div>
-              </div>
-              <v-menu>
-                <template v-slot:activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon="mdi-dots-vertical"
-                    variant="text"
-                    color="on-surface-variant"
-                    draggable="false"
-                    @dragstart.stop.prevent
-                    @mousedown.stop
-                    @click.stop
-                  ></v-btn>
-                </template>
-                <v-list density="comfortable" class="nunito-scope">
-                  <v-list-item
-                    :prepend-icon="file.isFavorite ? 'mdi-star-off' : 'mdi-star-outline'"
-                    :title="file.isFavorite ? 'Убрать из избранного' : 'В избранное'"
-                    @click="toggleFavorite(file)"
-                  ></v-list-item>
-                  <v-list-item prepend-icon="mdi-download" title="Скачать" @click="download(file)"></v-list-item>
-                  <v-list-item prepend-icon="mdi-information-outline" title="Подробности" @click="openDetails(file)"></v-list-item>
-                  <v-list-item prepend-icon="mdi-pencil-outline" title="Переименовать" @click="openRename(file)"></v-list-item>
-                  <v-list-item prepend-icon="mdi-delete-outline" title="Удалить" @click="removeNode(file)"></v-list-item>
-                </v-list>
-              </v-menu>
-            </div>
-          </div>
+            @open="openFile(file)"
+            @favorite="toggleFavorite(file)"
+            @download="download(file)"
+            @details="openDetails(file)"
+            @rename="openRename(file)"
+            @delete="removeNode(file)"
+          />
         </div>
       </template>
       <!-- НЕДАВНИЕ ФАЙЛЫ (только корень) -->
@@ -358,46 +328,21 @@
           <h2 class="text-h5 font-weight-bold text-on-surface">Недавние файлы</h2>
         </div>
         <div class="m3-scroll-container gap-6 pb-12">
-          <div
+          <FileCard
             v-for="(file, i) in recent"
             :key="file.id"
-            class="m3-card m3-file-card m3-reveal d-flex flex-column pa-5"
+            :node="file"
+            :thumb="thumbUrls[file.id]"
+            variant="recent"
             :style="{ '--i': Math.min(i, 12) }"
-            v-ripple
             draggable="true"
             @dragstart="onCardDragStart($event, file)"
             @dragend="onCardDragEnd"
-            @click="openFile(file, recent)"
-          >
-            <div class="m3-thumb-guard" draggable="false">
-              <FileThumb :node="file" :thumb="thumbUrls[file.id]" />
-            </div>
-            <div class="d-flex align-center justify-space-between mt-auto">
-              <div class="overflow-hidden pr-3">
-                <div class="text-title-medium font-weight-bold text-on-surface text-truncate mb-1">{{ file.name }}</div>
-                <div class="text-body-2 text-on-surface-variant">{{ formatDate(file.updatedAt) }}</div>
-              </div>
-              <v-menu>
-                <template v-slot:activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon="mdi-dots-vertical"
-                    variant="text"
-                    color="on-surface-variant"
-                    draggable="false"
-                    @dragstart.stop.prevent
-                    @mousedown.stop
-                    @click.stop
-                  ></v-btn>
-                </template>
-                <v-list density="comfortable" class="nunito-scope">
-                  <v-list-item prepend-icon="mdi-download" title="Скачать" @click="download(file)"></v-list-item>
-                  <v-list-item prepend-icon="mdi-information-outline" title="Подробности" @click="openDetails(file)"></v-list-item>
-                  <v-list-item prepend-icon="mdi-eye-off-outline" title="Скрыть из недавних" @click="hideRecent(file)"></v-list-item>
-                </v-list>
-              </v-menu>
-            </div>
-          </div>
+            @open="openFile(file, recent)"
+            @download="download(file)"
+            @details="openDetails(file)"
+            @hide-recent="hideRecent(file)"
+          />
         </div>
       </template>
     </template>
@@ -470,7 +415,7 @@ import { openDetails } from '@/store/details'
 import { playTrack } from '@/store/player'
 import { startPinDrag, endPinDrag, draggingPin } from '@/store/pins'
 import { currentUser } from '@/store/auth'
-import FileThumb from '@/components/FileThumb.vue'
+import FileCard from '@/components/FileCard.vue'
 import BannerTile from '@/components/BannerTile.vue'
 import { useThumbs } from '@/composables/useThumbs'
 import { isAudio } from '@/utils/preview'
@@ -493,8 +438,8 @@ import {
   type StorageInfo,
   ApiError,
 } from '@/api'
-import { formatBytes, formatDate, fileIcon, fileColor, fileBg } from '@/utils/format'
-const emit = defineEmits<{ (e: 'goto-favorites'): void }>()
+import { formatBytes, fileIcon, fileColor } from '@/utils/format'
+defineEmits<{ (e: 'goto-favorites'): void }>()
 const { thumbUrls, loadThumbs } = useThumbs()
 const stack = ref<{ id: string | null; name: string }[]>([{ id: null, name: 'Главная' }])
 const items = ref<NodeItem[]>([])

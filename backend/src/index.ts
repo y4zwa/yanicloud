@@ -137,9 +137,7 @@ export function startPurgeLoop(): void {
 
 // Запускаем сервер только если файл является точкой входа:
 // так модуль можно импортировать в тестах, не поднимая порт.
-const isEntrypoint = process.argv[1]
-  ? pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url
-  : false
+const isEntrypoint = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url : false
 
 if (isEntrypoint) {
   const app = buildApp()
